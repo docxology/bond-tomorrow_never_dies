@@ -1,5 +1,44 @@
-# Code-centric exemplar: optional monorepo adapters only.
-allow_infrastructure_imports:
-  - src/analysis/_infra.py
-  - src/_runtime.py
-  - src/benchmark_support.py
+# CARVER layer contract — who may import what.
+
+# The pure domain core infers nothing from the BOND suite; the mission adapter
+# is the only module that imports bond_api; figures/manuscript_variables are
+# workflow modules that render or inject.
+
+surfaces:
+  pure_domain:
+    description: "Filter-net media, stealth, gps denial, scenario math."
+    modules:
+      - src/tomorrow_never_dies/media_manipulation.py
+      - src/tomorrow_never_dies/stealth_detection.py
+      - src/tomorrow_never_dies/gps_denial.py
+      - src/tomorrow_never_dies/scenario.py
+    rule: "stdlib + numpy only; must NOT import bond_api or matplotlib."
+
+  protocol_adapter:
+    description: "The single bridge between the domain core and bond_api."
+    modules:
+      - src/tomorrow_never_dies/mission.py
+    rule: "May import bond_api; must NOT contain domain math beyond wiring."
+
+  workflow:
+    description: "Rendering and manuscript-injection workflows."
+    modules:
+      - src/tomorrow_never_dies/figures.py
+      - src/tomorrow_never_dies/manuscript_variables.py
+    rule: "May import matplotlib / yaml; must defer all computation to the core."
+
+  orchestrators:
+    description: "Thin CLIs; no business logic."
+    modules:
+      - scripts/brief.py
+      - scripts/recon.py
+      - scripts/plan.py
+      - scripts/execute.py
+      - scripts/debrief.py
+      - scripts/run_mission.py
+      - scripts/z_generate_manuscript_variables.py
+    rule: "Import src modules and forward; never implement math in-place."
+
+enforced_by:
+  description: "Boundary audit via the fixture-free gate in the package preamble."
+  rule: "No infrastructure.* and no bond_api imports inside the pure_domain surface."

@@ -10,3 +10,7 @@ __pycache__/
 
 # Project-local virtualenvs (root .venv is shared)
 .venv/
+
+# Regenerable artifacts (produced by scripts/*.py and figure generators)
+output/
+

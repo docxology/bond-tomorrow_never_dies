@@ -1,57 +1,43 @@
 claims:
-  - claim_id: figure-export-dpi
+  - claim_id: stealth-rcs-reduction-db
     kind: number
-    value: 300
-    source: projects/working/bond/tomorrow_never_dies/src/viz_config.py plotting defaults (dpi)
+    value: 20.0
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/stealth_detection.py rcs_reduction_db for 1.0 vs 0.01 m2
     source_tier: project_source
     freshness: active
-    artifact_path: output/figures/convergence_plot.png
-  - claim_id: step-size-sensitivity-cap
+    artifact_path: output/figures/stealth_detection.png
+  - claim_id: detection-range-fourth-root-ratio
     kind: number
-    value: 500
-    source: projects/working/bond/tomorrow_never_dies/src/sweeps.py sensitivity_sweep max_iter cap
+    value: 0.316227766
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/stealth_detection.py detection_range_ratio = (0.01)^0.25
     source_tier: generated_metric
     freshness: active
-    artifact_path: output/figures/step_size_sensitivity.png
-  - claim_id: stability-log-lower
+    artifact_path: output/figures/stealth_detection.png
+  - claim_id: marcum-floor-at-zero-snr
     kind: number
-    value: -6
-    source: projects/working/bond/tomorrow_never_dies/src/figures/scientific_stability.py stability visualization caption
+    value: 1.0e-4
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/stealth_detection.py detection_probability at SNR=0 equals P_fa
     source_tier: project_source
     freshness: active
-    artifact_path: output/figures/stability_analysis.png
-  - claim_id: solution-relative-error-exponent
+    artifact_path: manuscript/02_methodology.md
+  - claim_id: jammer-range-standoff
     kind: number
-    value: -4
-    source: projects/working/bond/tomorrow_never_dies/manuscript/03_results.md stated precision threshold
-    source_tier: manuscript_claim
-    freshness: active
-    artifact_path: manuscript/03_results.md
-  - claim_id: stability-log-upper
-    kind: number
-    value: -9
-    source: projects/working/bond/tomorrow_never_dies/src/figures/scientific_stability.py stability visualization caption
+    value: 100000.0
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/scenario.py SCENARIO_PARAMS gps.jammer_distance_m
     source_tier: project_source
     freshness: active
-    artifact_path: output/figures/stability_analysis.png
-  - claim_id: benchmark-tolerance-exponent
+    artifact_path: manuscript/05_experimental_setup.md
+  - claim_id: march-cascade-fraction-bound
     kind: number
-    value: -10
-    source: projects/working/bond/tomorrow_never_dies/scripts/optimization_analysis.py dimensional benchmark tolerance
-    source_tier: project_source
+    value: 0.5
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/gps_denial.py simulated cascade fraction never exceeds failed/total in [0,1]
+    source_tier: generated_metric
     freshness: active
-    artifact_path: output/figures/performance_benchmark.png
-  - claim_id: benchmark-min-iterations
-    kind: number
-    value: 219
-    source: projects/working/bond/tomorrow_never_dies/manuscript/03_results.md benchmark caption
-    source_tier: manuscript_claim
+    artifact_path: output/figures/gps_denial.png
+  - claim_id: media-belief-share-bounds
+    kind: range
+    value: "0.0 < belief_share < 1.0"
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/scenario.py canonical media run belief_share
+    source_tier: generated_metric
     freshness: active
-    artifact_path: output/figures/performance_benchmark.png
-  - claim_id: benchmark-max-iterations
-    kind: number
-    value: 238
-    source: projects/working/bond/tomorrow_never_dies/manuscript/03_results.md benchmark caption
-    source_tier: manuscript_claim
-    freshness: active
-    artifact_path: output/figures/performance_benchmark.png
+    artifact_path: output/figures/disinformation_propagation.png

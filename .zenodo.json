@@ -1,30 +1,23 @@
 {
+  "title": "tomorrow_never_dies — CARVER: Special-Agent Mission Software",
+  "description": "Deterministic mission-software package modeling disinformation propagation, stealth-vessel (low-RCS) detection, and GPS-denial impact for Tomorrow Never Dies (1997). Project BOND film package interoperating through the FROZEN bond_api MissionProvider protocol.",
   "creators": [
     {
-      "affiliation": "Active Inference Institute",
-      "name": "Friedman, Daniel Ari",
-      "orcid": "0000-0001-6232-9096"
+      "name": "Friedman, Daniel",
+      "orcid": "0000-0001-6232-9096",
+      "affiliation": "Active Inference Institute"
     }
   ],
-  "description": "Source code for Convergence Analysis of Gradient Descent Optimization (2026).",
   "keywords": [
-    "optimization algorithms",
-    "gradient descent",
-    "convergence analysis",
-    "numerical methods",
-    "mathematical programming",
-    "reproducible research",
-    "infrastructure automation"
+    "disinformation propagation",
+    "media manipulation",
+    "radar cross-section",
+    "stealth detection",
+    "GPS denial",
+    "navigation failure cascade",
+    "deterministic simulation"
   ],
   "license": "MIT",
-  "related_identifiers": [
-    {
-      "identifier": "10.5281/zenodo.20417136",
-      "relation": "isVersionOf",
-      "scheme": "doi"
-    }
-  ],
-  "title": "Convergence Analysis of Gradient Descent Optimization",
   "upload_type": "software",
-  "version": "2.5.2"
+  "access_right": "open"
 }

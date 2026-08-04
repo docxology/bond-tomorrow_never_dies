@@ -1,83 +1,49 @@
-# Methodology {#sec:methodology}
+# Methodology
 
-This section describes the implementation methodology, explicitly detailing how the optimization algorithms are constructed, validated, and analyzed using the Generalized Research Template's `infrastructure` and `tests` ecosystems.
+Each concept is a self-contained deterministic model with clear physical or
+algorithmic grounding.
 
-## Algorithm Implementation
+## Disinformation propagation
 
-### Gradient Descent Algorithm
+Agents occupy one of three belief states — unaware, susceptible, or believing —
+on a Watts–Strogatz small-world network of {{MEDIA_NODES}} nodes (seed
+{{CARVER_SEED}}). Two channels convert susceptible agents to believers each
+round `simulate_disinformation` (`src/tomorrow_never_dies/media_manipulation.py`):
 
-The core algorithm implements the iterative procedure for unconstrained optimization. The [`optimizer` module](https://github.com/docxology/template/blob/main/projects/working/bond/tomorrow_never_dies/src/optimizer.py) uses the standard-library `logging` logger for optional verbose diagnostics; the [analysis orchestrator](https://github.com/docxology/template/blob/main/projects/working/bond/tomorrow_never_dies/scripts/optimization_analysis.py) uses `infrastructure.core.logging.utils.get_logger`. Tests run under the hermetic boundaries defined in the [test configuration](https://github.com/docxology/template/blob/main/projects/working/bond/tomorrow_never_dies/tests/conftest.py).
+* **Media channel**: a deterministic subset of nodes (the campaign reach) is
+  exposed; each susceptible exposed node converts with probability
+  *persuasion*.
+* **Social channel**: every believing node converts each susceptible neighbor
+  with probability *spread rate*.
 
-**Algorithm — Gradient Descent (implemented in the [optimizer module](https://github.com/docxology/template/blob/main/projects/working/bond/tomorrow_never_dies/src/optimizer.py#L87-L173))**
+Belief share is recorded after every round. `influence_maximization` applies
+a greedy Kempe–Kleinberg–Tardos selection to choose the seed nodes that
+maximise the final belief share. The echo-chamber coefficient measures
+whether believers find themselves among believers; the amplification factor
+compares final believers to the directly exposed audience.
 
-> **Input:** Initial point $x_0$, step size $\alpha$, tolerance $\epsilon$, max iterations $N_{\max}$
->
-> 1. Initialize $k \leftarrow 0$
-> 2. **While** $k < N_{\max}$ **do:**
->    - Compute gradient $g_k = \nabla f(x_k)$
->    - **If** $\|g_k\|_2 < \epsilon$ **then return** $x_k$ *(converged)*
->    - Update: $x_{k+1} \leftarrow x_k - \alpha \cdot g_k$
->    - $k \leftarrow k + 1$
-> 3. **Return** $x_k$ *(max iterations reached)*
+## Stealth-vessel detection
 
-## Infrastructure Integration
+`stealth_detection.py` evaluates the monostatic radar equation
+`snr_at_range`: \begin{equation} \mathrm{SNR} = \frac{P_t G^2 \lambda^2 \sigma n_p}{(4\pi)^3 R^4 k T_0 B F L}, \end{equation}
+where $\sigma$ is the radar cross-section and $R$ the range. A false-alarm
+probability sets a square-law threshold; `detection_probability` returns the
+probability of detection $P_d$ either by numerically integrating the Marcum Q
+function (Swerling 0, nonfluctuating) or by the closed form
+$P_d = P_{fa}^{1/(1+n_p \mathrm{SNR})}$ (Swerling 1). `detection_range` binary
+searches the range at which $P_d$ reaches a target. A stealth hull with RCS
+$\sigma_s$ is therefore detected at only
+$(\sigma_s/\sigma_r)^{1/4}$ of the reference range.
 
-The methodology explicitly bridges theoretical mathematics with production-grade validation through the `infrastructure.scientific` module.
+## GPS-denial impact
 
-### Numerical Stability Analysis
+`gps_denial.py` builds a deterministic Walker-style constellation and computes
+the geometry matrix and dilution of precision (GDOP/PDOP/HDOP/VDOP). A jammer
+produces a jammer-to-noise ratio `jamming_to_noise_db` that degrades the
+carrier-to-noise density `effective_cno_dbhz`, inflating the user equivalent
+range error `uere_meters` and hence the position error `PDOP · UERE`.
 
-Rather than writing ad-hoc validation code, the project imports `infrastructure.scientific.stability.check_numerical_stability`. This utility subjects the objective function to a barrage of extreme inputs (NaN, Inf, $\pm 10^{10}$) to calculate a formalized stability score. If this score degrades, the [analysis orchestrator](https://github.com/docxology/template/blob/main/scripts/pipeline/stage_02_analysis.py) execution deliberately aborts, ensuring the methodology cannot enter unrecoverable states.
-
-### Performance Benchmarking
-
-The analysis exercises [`infrastructure.scientific.benchmarking.benchmark_function`](https://github.com/docxology/template/blob/main/infrastructure/scientific/benchmarking.py) as a runtime diagnostic. Host-dependent timing and memory observations are logged but excluded from tracked evidence. The canonical report records fixed inputs and exact objective values, while the dimensional figure reports deterministic convergence iterations and the proxy $d \times \text{iterations}$; neither surface claims that one host run proves an asymptotic bound.
-
-## Convergence Analysis
-
-For quadratic functions $f(x) = \frac{1}{2}x^T A x - b^T x$ where $A$ is positive definite, the convergence factor becomes [@bertsekas1999nonlinear]:
-
-\begin{equation}
-\label{eq:convergence_factor}
-\rho = \frac{|\lambda_{\max} - \alpha\lambda_{\min}|}{|\lambda_{\min} + \alpha\lambda_{\max}|}
-\end{equation}
-
-Optimal convergence occurs when $\alpha = \frac{2}{\lambda_{\min} + \lambda_{\max}}$, yielding $\rho = \frac{\kappa - 1}{\kappa + 1}$.
-
-## Experimental Setup
-
-### Step Size Analysis
-
-Step sizes are not chosen ad hoc in the manuscript: they are read from `experiment.step_sizes` in `manuscript/config.yaml` and passed through `run_convergence_experiment()` in `src/analysis/` (entry: `scripts/optimization_analysis.py`). The active grid for this build is:
-
-{{CONFIG_STEP_SIZES_BULLETS}}
-
-Labels follow the same agency taxonomy used for plot colours (`_agency_category` in the analysis script): **conservative** (small $\alpha$, slow but stable on $H=I$), **near-optimal** (including $\alpha=1$ where the method reaches $x^\ast$ in one step for this quadratic), **aggressive** ($1 < \alpha < 2$, still linearly contracting in $|x-x^\ast|$ but oscillatory in sign), and **divergent** ($|1-\alpha| \geq 1$).
-
-### Zero-Mock Testing Methodology
-
-The most critical aspect of the project's methodology is its validation framework. The project is governed by a strict Zero-Mock testing policy, evaluated actively by executing `uv run pytest projects/working/bond/tomorrow_never_dies/tests/` during the infrastructure build phase.
-
-1. **Project tests**: [`projects/working/bond/tomorrow_never_dies/tests/test_optimizer.py`](../tests/test_optimizer.py) exercises `src/optimizer.py` (typical, edge, boundary, and pathological inputs including NaN/Inf and zero gradients) and, when infrastructure imports succeed, call into `optimization_analysis.py` helpers—without mocks. Suite size: [`docs/_generated/COUNTS.md`](../../../../docs/_generated/COUNTS.md).
-2. **Infrastructure validation**: The repository-level `tests/infra_tests/` suite validates shared template modules (e.g. pipeline and discovery helpers) independently of this project’s manuscript.
-3. **Coverage Gates**: The [GitHub Actions CI workflow](https://github.com/docxology/template/blob/main/.github/workflows/ci.yml) enforces a mandatory ≥90% statement coverage gate on `projects/working/bond/tomorrow_never_dies/src/` prior to treating the project as build-green.
-
-### Stopping rule and reporting
-
-`gradient_descent()` terminates when $\|\nabla f(x_k)\|$ falls below `experiment.tolerance`, when $k$ reaches `experiment.max_iterations`, or when an objective, gradient, or update becomes non-finite. The boolean `converged` plus `termination_reason` in exported CSV rows distinguish these outcomes. A non-finite candidate is rejected before it enters `objective_history`, preserving the last finite state for reproducible reporting. Downstream, `scripts/z_generate_manuscript_variables.py` aggregates the CSV into `RESULT_*` placeholders so tables and prose cannot drift from the last analysis run.
-
-### Figure generation contract
-
-Each figure in `03_results.md` maps to a generator in `src/figures/` (`generate_convergence_plot`, `generate_step_size_sensitivity_plot`, `generate_convergence_rate_plot`, `generate_complexity_visualization`, `generate_stability_visualization`, `generate_benchmark_visualization`), orchestrated by `src/analysis/` / `scripts/optimization_analysis.py`. Captions in the markdown intentionally name the function and the key parameters (tolerance lines, grids, dimensions) so reviewers can navigate from PDF to code without inferring hidden defaults.
-
-The same generator writes explicit `metadata.alt_text` for every registered
-figure. The alt text states what the visual encodes and preserves the boundary
-between deterministic observations and host-dependent diagnostics. Run the
-opt-in publication migration gate with
-`--require-figure-accessibility` to verify that every referenced figure has
-this metadata before promotion.
-
-## Analysis Pipeline & LaTeX Integration
-
-The automated analysis script leverages [`infrastructure.core.progress`](https://github.com/docxology/template/blob/main/infrastructure/core/progress.py) (`ProgressBar`, `SubStageProgress`) to orchestrate experiments, collect convergence trajectories, and generate publication-quality visualizations seamlessly.
-
-The research template supports advanced LaTeX customization through the `preamble.md` configuration. This is ingested directly by `infrastructure.rendering.latex_utils.py` and `pdf_renderer.py`, automatically linking compiled PGF plots and BibTeX citations. This automated approach ensures an unbreakable chain of custody from raw algorithmic execution to the final rendered manuscript.
+Finally `simulate_navigation_cascade` propagates failure across a maritime
+dependency network: each system's GPS stress is weighted, thresholds trigger
+failure, and failed systems add coupled stress to their dependents, round by
+round, until the cascade reaches a fixpoint.

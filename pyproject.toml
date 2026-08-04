@@ -1,5 +1,7 @@
-# Code Project Configuration
-# Inherits workspace settings from root pyproject.toml
+# Code Project Configuration — PROJECT BOND · tomorrow_never_dies (CARVER)
+# Mission package for "Tomorrow Never Dies" (1997): disinformation propagation,
+# stealth-vessel detection, and GPS-denial impact analysis.
+# Inherits workspace settings from the monorepo root pyproject.toml.
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -7,9 +9,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tomorrow_never_dies"
-version = "2.5.2"
+version = "0.1.0"
 license = {text = "MIT"}
-description = "Fully-tested codebase with numerical optimization and analysis"
+description = "CARVER — disinformation propagation, stealth-vessel detection, and GPS-denial impact analysis (Tomorrow Never Dies, 1997)"
 authors = [
     {name = "Daniel Ari Friedman", email = "daniel@activeinference.institute"}
 ]
@@ -18,27 +20,32 @@ dependencies = [
     "numpy>=1.24.0",
     "matplotlib>=3.7.0",
     "pyyaml>=6.0",
-    "defusedxml>=0.7.1",
+    "bond-api",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
+    "mypy>=1.8.0",
+    "ruff>=0.4.0",
+    "types-PyYAML>=6.0.12",
 ]
 
+# BOND suite path dependency: the frozen MissionProvider protocol (bond-api
+# phase-1, FROZEN). mission.py is the thin adapter; the domain core below does
+# NOT import bond-api so it stays importable if the path dep ever fails.
+[tool.uv.sources]
+bond-api = { path = "/Users/4d/Documents/GitHub/template/projects/working/bond/bond-api" }
+
 [tool.pytest.ini_options]
-# RASP Strict Assertion: Tests must be clearly separated and structurally identifiable
 pythonpath = [".", "src"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
-# `--strict-markers` prevents typos in marker definitions
 addopts = "-v --tb=short --strict-markers"
 
 [tool.coverage.run]
-# Core Template Rule: We only calculate coverage for primary source code (`src/`),
-# ensuring test code itself does not artificially inflate metric scores.
 source = ["src"]
 branch = true
 omit = [
@@ -48,8 +55,8 @@ omit = [
 ]
 
 [tool.coverage.report]
-# ≥90% on src/ is the enforced gate; live coverage % is tracked in
-# docs/_generated/COUNTS.md (do not hardcode it here — it drifts).
+# >=90% line+branch on src/ is the enforced gate; live coverage % is tracked
+# in docs/_generated/COUNTS.md (do not hardcode it here — it drifts).
 fail_under = 90
 show_missing = true
 precision = 2
@@ -58,6 +65,27 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
 ]
+
+[tool.mypy]
+mypy_path = ["src"]
+explicit_package_bases = true
+python_version = "3.11"
+warn_unused_configs = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+# Self-contained, deterministic rule set for this package (not inherited from
+# the monorepo root). Excluded deliberately:
+#   TRY004      — this package raises ValueError uniformly for validation
+#                 (see docs/style_guide.md Rule 7).
+#   RUF001/002/003 — ambiguous-unicode lint conflicts with legitimate
+#                 scientific typography (sigma, superscripts, en dashes).
+# E501 is intentionally absent: ruff's own formatter owns line length.
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "PLW", "PERF", "RUF"]
+ignore = ["TRY004", "RUF001", "RUF002", "RUF003"]
 
 [tool.uv]
 # Inherits workspace settings from root pyproject.toml

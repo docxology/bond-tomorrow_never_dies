@@ -1,22 +1,24 @@
-authors:
-- affiliation: Active Inference Institute
-  family-names: Friedman
-  given-names: Daniel Ari
-  orcid: 0000-0001-6232-9096
 cff-version: 1.2.0
-date-released: '2026-07-10'
-doi: 10.5281/zenodo.20417136
+message: "If you use this software, please cite it as below."
+title: "tomorrow_never_dies — CARVER: Special-Agent Mission Software"
+abstract: >-
+  Deterministic mission-software package modeling disinformation propagation,
+  stealth-vessel (low-RCS) detection, and GPS-denial impact for Tomorrow Never
+  Dies (1997). Part of the PROJECT BOND suite and interoperates through the
+  FROZEN bond_api MissionProvider protocol (codename THE PROTOCOL).
+authors:
+  - family-names: Friedman
+    given-names: Daniel
+    orcid: "https://orcid.org/0000-0001-6232-9096"
+    affiliation: "Active Inference Institute"
 keywords:
-- optimization algorithms
-- gradient descent
-- convergence analysis
-- numerical methods
-- mathematical programming
-- reproducible research
-- infrastructure automation
+  - "disinformation propagation"
+  - "media manipulation"
+  - "radar cross-section"
+  - "stealth detection"
+  - "GPS denial"
+  - "navigation failure cascade"
+  - "deterministic simulation"
+version: "0.1.0"
+date-released: "2026-08-04"
 license: MIT
-message: If you use this software, please cite it using the metadata from this file.
-repository-code: https://github.com/docxology/tomorrow_never_dies
-title: Convergence Analysis of Gradient Descent Optimization
-type: software
-version: 2.5.2

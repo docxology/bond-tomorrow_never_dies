@@ -1,0 +1,142 @@
+"""Tests for the CARVER mission provider (BOND-API adaptation).
+
+Zero mocks: the provider runs real domain computation; discovery uses the real
+``bond_api`` machinery; serialization round-trips through the real wire format.
+"""
+
+from __future__ import annotations
+
+from bond_api.discovery import discover, load_provider
+from bond_api.protocol import (
+    MissionProvider as ProtocolProvider,
+)
+from bond_api.protocol import (
+    ReconRequest,
+    run_mission,
+)
+from bond_api.registry import GadgetRegistry
+from bond_api.serialization import from_dict, to_dict
+
+from tomorrow_never_dies.mission import (
+    FILM,
+    GADGET_REGISTRY,
+    MissionProvider,
+    register_gadgets,
+)
+from tomorrow_never_dies.scenario import canonical_input_hash
+
+GADGET_NAMES = (
+    "media_campaign",
+    "radar_detection",
+    "radar_equation",
+    "navigation_cascade",
+    "carver_scenario",
+)
+
+
+def test_provider_satisfies_protocol() -> None:
+    provider = MissionProvider()
+    assert isinstance(provider, ProtocolProvider)
+
+
+def test_film_identity() -> None:
+    assert MissionProvider.film == "tomorrow_never_dies"
+    assert MissionProvider().film == FILM
+
+
+def test_brief() -> None:
+    brief = MissionProvider().brief()
+    assert brief.film == FILM
+    assert brief.codename == "CARVER"
+    assert len(brief.objectives) == 3
+    assert len(brief.assets) == 3
+    assert any(constraint.kind == "determinism" for constraint in brief.constraints)
+
+
+def test_recon() -> None:
+    provider = MissionProvider()
+    report = provider.recon(ReconRequest(goal="probe the theater"))
+    assert len(report.findings) == 5
+    assert report.findings[0].label == "goal"
+    assert report.findings[0].detail == "probe the theater"
+
+
+def test_plan() -> None:
+    provider = MissionProvider()
+    plan = provider.plan(provider.brief())
+    assert [step.name for step in plan.steps] == [
+        "media",
+        "stealth",
+        "gps",
+        "synthesize",
+    ]
+    assert all(step.action for step in plan.steps)
+
+
+def test_execute() -> None:
+    provider = MissionProvider()
+    outcome = provider.execute(provider.plan(provider.brief()))
+    assert outcome.success is True
+    assert outcome.results["steps_completed"] == 4
+    assert set(outcome.results["per_step"]) == {"media", "stealth", "gps", "synthesize"}
+    assert outcome.provenance.seed == 7
+    assert outcome.provenance.wall_time_s == 0.0
+    assert outcome.provenance.input_hash == canonical_input_hash()
+    assert outcome.provenance.package_version == "0.1.0"
+
+
+def test_execute_deterministic() -> None:
+    provider = MissionProvider()
+    plan = provider.plan(provider.brief())
+    first = provider.execute(plan)
+    second = provider.execute(plan)
+    assert first.results == second.results
+    assert first.provenance.input_hash == second.provenance.input_hash
+
+
+def test_debrief() -> None:
+    provider = MissionProvider()
+    outcome = provider.execute(provider.plan(provider.brief()))
+    debrief = provider.debrief(outcome)
+    assert len(debrief.lessons) >= 3
+    assert debrief.outcome is outcome
+    assert all(isinstance(lesson, str) and lesson for lesson in debrief.lessons)
+
+
+def test_run_mission_full_flow() -> None:
+    provider = MissionProvider()
+    debrief = run_mission(provider, ReconRequest(goal="full flow"))
+    assert debrief.outcome.success is True
+    assert len(debrief.lessons) >= 3
+
+
+def test_gadget_registry_registration() -> None:
+    assert FILM in GADGET_REGISTRY
+    for name in GADGET_NAMES:
+        assert GADGET_REGISTRY.contains(FILM, name)
+        assert callable(GADGET_REGISTRY.lookup(FILM, name))
+
+
+def test_register_gadgets_fresh_registry() -> None:
+    registry = GadgetRegistry()
+    returned = register_gadgets(registry)
+    assert returned is registry
+    assert registry.contains(FILM, "media_campaign")
+
+
+def test_discovery_load_provider() -> None:
+    provider = load_provider("tomorrow_never_dies")
+    assert isinstance(provider, ProtocolProvider)
+    assert provider.film == "tomorrow_never_dies"
+
+
+def test_discovery_autodiscover() -> None:
+    found = discover(slugs=["tomorrow_never_dies"])
+    assert "tomorrow_never_dies" in found
+
+
+def test_serialization_round_trip() -> None:
+    provider = MissionProvider()
+    outcome = provider.execute(provider.plan(provider.brief()))
+    restored = from_dict(to_dict(outcome))
+    assert restored == outcome

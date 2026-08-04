@@ -1,70 +1,76 @@
-"""Smoke tests for auxiliary pipeline scripts (non-gated)."""
+"""Subprocess smoke tests for the thin CARVER phase CLIs.
+
+Each script is invoked with the venv interpreter from the project root (so
+the scripts' own ``sys.path`` bootstrap applies) and must exit 0.
+"""
 
 from __future__ import annotations
 
+import json
+import os
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PHASE_SCRIPTS = (
+    "brief.py",
+    "recon.py",
+    "plan.py",
+    "execute.py",
+    "debrief.py",
+    "run_mission.py",
+)
 
 
-def test_generate_api_docs_writes_reference() -> None:
-    """generate_api_docs.py is aesthetic-only but should run without error."""
-    script = PROJECT_ROOT / "scripts" / "generate_api_docs.py"
-    result = subprocess.run(
-        [sys.executable, str(script)],
+def run_script(name: str, *args: str) -> subprocess.CompletedProcess[str]:
+    env = dict(os.environ)
+    env["MPLBACKEND"] = "Agg"
+    return subprocess.run(  # noqa: PLW1510 — returncode inspected below
+        [sys.executable, str(PROJECT_ROOT / "scripts" / name), *args],
         cwd=PROJECT_ROOT,
+        env=env,
         capture_output=True,
         text=True,
-        timeout=120,
-        check=False,
+        timeout=600,
     )
-    assert result.returncode == 0, result.stderr or result.stdout
-    api_ref = PROJECT_ROOT / "output" / "docs" / "api_reference.md"
-    assert api_ref.is_file()
-    body = api_ref.read_text(encoding="utf-8")
-    assert "gradient_descent" in body.lower()
 
 
-def test_preflight_script_emits_diagnostics() -> None:
-    """00_preflight.py is aesthetic-only; exit 0 when no render mermaid, exit 1 when chrome absent."""
-    script = PROJECT_ROOT / "scripts" / "00_preflight.py"
-    result = subprocess.run(
-        [sys.executable, str(script)],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-        timeout=120,
-        check=False,
-    )
-    assert result.returncode in (0, 1), result.stderr or result.stdout
-    combined = f"{result.stdout}\n{result.stderr}".lower()
-    if result.returncode == 1:
-        assert any(token in combined for token in ("preflight", "puppeteer", "mmdc"))
+@pytest.mark.parametrize("script", PHASE_SCRIPTS)
+def test_phase_scripts_exit_zero(script: str) -> None:
+    result = run_script(script)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip()
 
 
-def test_run_api_doc_generation_continues_when_glossary_index_fails(tmp_path: Path) -> None:
-    """Glossary index failure is logged; static api_reference.md still written."""
-    repo_root = PROJECT_ROOT.parent.parent
-    src_path = str(PROJECT_ROOT / "src")
-    for path in (str(repo_root), src_path):
-        if path not in sys.path:
-            sys.path.insert(0, path)
+def test_recon_with_goal_argument() -> None:
+    result = run_script("recon.py", "scan", "the", "theater")
+    assert result.returncode == 0
+    assert "scan the theater" in result.stdout
 
-    scripts_dir = str(PROJECT_ROOT / "scripts")
-    if scripts_dir not in sys.path:
-        sys.path.insert(0, scripts_dir)
-    import generate_api_docs as api_docs_mod
 
-    def _fail(_src: str) -> list:
-        raise ValueError("glossary index unavailable")
+def test_z_generate_manuscript_variables() -> None:
+    result = run_script("z_generate_manuscript_variables.py")
+    assert result.returncode == 0, result.stderr
 
-    project_root = tmp_path
-    (project_root / "src").mkdir()
-    result = api_docs_mod.run_api_doc_generation(project_root, api_index_builder=_fail)
-    assert result is not None
-    api_ref = project_root / "output" / "docs" / "api_reference.md"
-    assert api_ref.is_file()
-    assert result["glossary"] is None
-    assert result["api_reference"] == str(api_ref)
+    variables_path = PROJECT_ROOT / "output" / "data" / "manuscript_variables.json"
+    assert variables_path.is_file()
+    variables = json.loads(variables_path.read_text(encoding="utf-8"))
+    assert variables["CARVER_CODENAME"] == "CARVER"
+    assert float(variables["STEALTH_RCS_REDUCTION_DB"]) == pytest.approx(20.0)
+
+    resolved_dir = PROJECT_ROOT / "output" / "manuscript"
+    sections = sorted(resolved_dir.glob("[0-9]*.md"))
+    assert sections
+    for section in sections:
+        assert "{{" not in section.read_text(encoding="utf-8")
+
+    figures_dir = PROJECT_ROOT / "output" / "figures"
+    for name in (
+        "disinformation_propagation.png",
+        "stealth_detection.png",
+        "gps_denial.png",
+    ):
+        assert (figures_dir / name).is_file(), name

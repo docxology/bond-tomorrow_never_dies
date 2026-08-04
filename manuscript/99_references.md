@@ -1,10 +1,8 @@
-# References {#sec:references}
+# References
 
-Bibliography lives in [`manuscript/references.bib`](references.bib) and is read by Pandoc during PDF render. The build pipeline invokes Pandoc with `--natbib`, so every `[@key]` citation in the manuscript is rewritten to the appropriate `\cite{}`/`\citep{}`/`\citet{}` LaTeX command and resolved against the bib file.
-
-To validate that `references.bib` is syntactically clean and contains the required fields per entry type:
-
-```bash
-uv run python -m infrastructure.reference.citation.cli validate \
-    projects/working/bond/tomorrow_never_dies/manuscript/references.bib --strict
-```
+1. J. I. Marcum, "A statistical theory of target detection by pulsed radar," *IRE Transactions on Information Theory*, vol. 6, no. 2, pp. 59–267, 1960.
+2. P. Swerling, "Probability of detection for fluctuating targets," *IRE Transactions on Information Theory*, vol. 6, no. 2, pp. 269–308, 1960.
+3. D. Kempe, J. Kleinberg, and É. Tardos, "Maximizing the spread of influence through a social network," in *Proc. 9th ACM SIGKDD*, 2003.
+4. P. Misra and P. Enge, *Global Positioning System: Signals, Measurements, and Performance*, 2nd ed., Ganga-Jamuna Press, 2006.
+5. M. I. Skolnik, *Introduction to Radar Systems*, 3rd ed., McGraw-Hill, 2001.
+6. *Tomorrow Never Dies*, dir. R. Spottiswoode, MGM / United Artists, 1997.

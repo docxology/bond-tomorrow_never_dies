@@ -1,25 +1,29 @@
-conditions:
-  - name: conservative_step
-    role: reference
-    description: "Stable gradient-descent step below the spectral bound."
-  - name: near_optimal_step
-    role: proposed
-    description: "Template-recommended step near the stable convergence region."
-  - name: aggressive_step
-    role: variant
-    description: "Stress condition near or above the stability boundary."
-metrics:
-  primary:
-    name: objective_value
-    direction: minimize
-protocol: "Run the deterministic quadratic optimization sweep with identical initialization, seeds, tolerance, and iteration cap across all declared step-size conditions."
-expected_figures:
-  - fig:convergence_plot
-  - fig:performance_benchmark
-  - fig:step_size_sensitivity
-expected_tables:
-  - tbl:optimization_results
-baselines:
-  - conservative_step
-ablations:
-  - aggressive_step
+experiment:
+  id: carver-canonical-scenario
+  objective: "Quantify Carver-style media control, stealth-vessel detection limits, and GPS-denial cascades."
+  seed: 7
+  conditions:
+    media:
+      network_size: 120
+      topology: small_world
+      media_reach: 0.3
+      persuasion: 0.12
+      spread_rate: 0.05
+      steps: 15
+    stealth:
+      p_fa: 1.0e-6
+      p_d_target: 0.9
+      reference_rcs_sqm: 1.0
+      stealth_rcs_sqm: 0.01
+    gps:
+      jammer_power_w: 1.0
+      jammer_distance_m: 100000.0
+      jamming_strength: 0.85
+      fail_threshold: 0.7
+  primary_metric: "belief share after the campaign (media); detection range ratio (stealth); position-error growth and cascade fraction (GPS)"
+  expected_figures:
+    - output/figures/disinformation_propagation.png
+    - output/figures/stealth_detection.png
+    - output/figures/gps_denial.png
+  baseline: "no-media spread (media); reference RCS target (stealth); clean-sky receiver (GPS)"
+  ablation: "media_reach=0 baseline; RCS sweep; jamming_strength sweep"
