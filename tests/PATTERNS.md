@@ -11,7 +11,13 @@ are functions, so tests simply call them with fixed arguments.
 
 - Re-run the same function twice and assert byte-identical results
   (e.g. `test_scenario_deterministic`, `test_execute_deterministic`).
-- Pin clock-dependent outputs with `now=` (e.g. `test_generate_variables_deterministic`).
+- **Never pin a clock to make a determinism test pass.** Injecting a fixed
+  `now=` and comparing the two results proves the function is pure, not that
+  the artifact is stable — this package shipped exactly that test while every
+  regeneration wrote a different manuscript. The rule is now: no producer of a
+  persisted artifact may read a clock, and the binding test runs the real
+  entry point twice across a second boundary and diffs the bytes
+  (`test_regeneration_is_byte_identical`).
 
 ## Branch coverage pattern
 

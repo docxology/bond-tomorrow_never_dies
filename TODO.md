@@ -6,8 +6,8 @@ manipulation vs narrative control, stealth detection vs pulse compression, GPS
 denial vs GNSS integrity), one canonical seeded scenario that every published
 number reads from, a `bond_api` `MissionProvider` adapter, six figures, and a
 fully tokenized manuscript. **Verified state, measured this session on
-2026-08-05 (Python 3.14.6, darwin): 187 passed, 0 failed, 0 skipped; 98.83%
-line+branch coverage over `src/` (1249 statements / 454 branches, 6 statements
+2026-08-05 (Python 3.14.6, darwin): 195 passed, 0 failed, 0 skipped; 98.84%
+line+branch coverage over `src/` (1258 statements / 460 branches, 6 statements
 and 14 branch legs missed); `ruff check`, `ruff format --check` and `mypy src/`
 all clean.** The phase-6 adversarial-audit remediation is complete — all 11
 findings in `output/verify/tomorrow_never_dies.json` were checked against the
@@ -17,6 +17,29 @@ Provenance of each item is tagged: **[U*n*]** = entry *n* of
 `../output/verify/tomorrow_never_dies.unresolved.json` (the five things the
 remediation pass could not close); **[new]** = found while writing this file and
 not yet recorded anywhere else.
+
+## Recently closed
+
+**Wall clock in the persisted manuscript (closed 2026-08-05).** The package
+claimed in three places that regeneration restores a byte-identical tree
+(`manuscript/06_reproducibility.md`, `docs/output_conventions.md`,
+`docs/testing_philosophy.md`) while `manuscript_variables.generate_variables`
+injected a `GENERATION_TIMESTAMP` token from `datetime.now()` into
+`05_experimental_setup.md`. Two regenerations two seconds apart produced
+different bytes — the claim was simply false, on every run since the token was
+added. The clock is gone: the token is now `MANUSCRIPT_DATE`, read from the
+committed `paper.date` in `manuscript/config.yaml`, and `generate_variables`
+takes no `now=` argument because it reads no clock at all.
+
+The reason this survived is worth keeping: the determinism test *pinned* the
+clock (`generate_variables(project_root, now=FIXED_NOW)` twice, compared) —
+which proves a pure function is pure and says nothing about the artifact. It
+is replaced by `test_regeneration_is_byte_identical`, which runs the real
+entry point twice in subprocesses across a second boundary and sha256s every
+file under `output/`, PNGs included. Reintroducing the clock was confirmed to
+turn it red before the fix was committed. Scope note: the claim is stated for
+a fixed interpreter, because `PYTHON_VERSION` is still read from
+`sys.version_info` — that is a property of the environment, not of the moment.
 
 ## Open work
 
@@ -110,7 +133,7 @@ From the measured run's Missing column:
 |---|---|
 | `src/tomorrow_never_dies/gps_denial.py:495` | `gps_weights[node]` is not a number (bool excluded) |
 | `src/tomorrow_never_dies/gps_denial.py:497` | `gps_weights[node]` outside `[0, 1]` |
-| `src/tomorrow_never_dies/manuscript_variables.py:176` | `config.yaml` lacks a mapping `paper` or a list `keywords` |
+| `src/tomorrow_never_dies/manuscript_variables.py:210` | `config.yaml` lacks a mapping `paper` or a list `keywords` |
 
 `tests/test_gps_denial.py` covers the analogous guards on
 `inclination_deg`/`azimuth_deg`/`elevation_deg`/`mask_angle_deg`
@@ -332,7 +355,7 @@ restriction, not a package failure; re-run with the sandbox disabled.
 
 ```bash
 uv run pytest tests/ --cov=src --cov-fail-under=90
-#   expect: 187 passed, 0 failed, 0 skipped, TOTAL 98.83% (>= 90% gate)
+#   expect: 195 passed, 0 failed, 0 skipped, TOTAL 98.84% (>= 90% gate)
 #   any change to src/ or tests/ changes these numbers — re-measure, then
 #   rewrite docs/_generated/COUNTS.md from the run, never by hand.
 
@@ -342,7 +365,18 @@ uv run mypy src/                          # expect: no issues found in 11 source
 
 uv run python scripts/run_mission.py      # expect: exit 0, five stages, provenance printed
 uv run python scripts/z_generate_manuscript_variables.py
-uv run pytest tests/test_scripts_smoke.py # expect: 8 passed
+uv run pytest tests/test_scripts_smoke.py # expect: 10 passed
+
+# Regeneration is byte-identical (the claim in manuscript/06_reproducibility.md
+# and docs/output_conventions.md). Run the generator twice across a second
+# boundary; the two hashes must be equal.
+uv run python scripts/z_generate_manuscript_variables.py >/dev/null
+find output -type f | sort | xargs cat | md5
+sleep 2
+uv run python scripts/z_generate_manuscript_variables.py >/dev/null
+find output -type f | sort | xargs cat | md5
+#   expect: identical hashes. Bound in-suite by
+#   tests/test_scripts_smoke.py::test_regeneration_is_byte_identical.
 
 rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock'
 #   expect: 2 hits, both in AGENTS.md (the file that states the rule) — see D1

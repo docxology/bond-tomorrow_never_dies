@@ -49,8 +49,10 @@ regeneration, so the setup can never describe a run that did not happen.
 * Package: {{CARVER_IDENTITY}}, version {{CARVER_VERSION}}, maintained by
   {{CARVER_AUTHOR}}.
 * Python: {{PYTHON_VERSION}}.
-* Determinism: fixed seed {{CARVER_SEED}}; no wall-clock in persisted
-  outcomes (`wall_time_s = 0`); no untracked random draws.
+* Determinism: fixed seed {{CARVER_SEED}}; no wall-clock anywhere in the
+  persisted tree — not in mission outcomes (`wall_time_s = 0`) and not in this
+  manuscript, which carries the committed manuscript date rather than a
+  generation timestamp; no untracked random draws.
 
 ## Regeneration
 
@@ -61,4 +63,7 @@ uv run python scripts/z_generate_manuscript_variables.py
 uv run python scripts/run_mission.py
 ```
 
-Generated at {{GENERATION_TIMESTAMP}}.
+Manuscript date {{MANUSCRIPT_DATE}} (`paper.date` in `manuscript/config.yaml`).
+This is the committed date of the manuscript, not the time of the last
+regeneration: re-running the command above on an unchanged tree rewrites the
+same bytes, which it could not do if this line moved with the clock.

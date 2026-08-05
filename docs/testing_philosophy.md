@@ -87,10 +87,22 @@ A gate nobody can fail is decoration. Four habits keep them honest here:
 
 Fixed seed `7` throughout. Every stochastic draw comes from a seeded
 `numpy.random.default_rng`; the broadcast footprint is index-mixed rather than
-drawn at all. Tests never depend on wall-clock time — `generate_variables`
-takes a `now=` override to pin `GENERATION_TIMESTAMP`, and persisted mission
-provenance records `wall_time_s = 0.0`. Re-running the full regeneration
-restores a byte-identical tree.
+drawn at all. Tests never depend on wall-clock time, because the *code* never
+reads one: `generate_variables` takes no clock at all (the manuscript date is
+the committed `paper.date`), and persisted mission provenance records
+`wall_time_s = 0.0`. Re-running the full regeneration on the same interpreter
+restores a byte-identical tree — see `docs/output_conventions.md` for why the
+interpreter is named.
+
+That property is bound by `test_regeneration_is_byte_identical`, which runs
+the generator twice in subprocesses across a second boundary and diffs every
+artifact. Its predecessor did the opposite: it passed a fixed `now=` into
+`generate_variables` and compared the two results, which proves only that a
+pure function is pure. The wall-clock token it was pinning was being written
+into the manuscript on every real run, so the tree was never byte-identical
+and the test could not have noticed. **A determinism test that injects the
+value it is testing for is not a determinism test** — run the real entry point
+twice and compare bytes.
 
 ## A note on what these tests do *not* prove
 

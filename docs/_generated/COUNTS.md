@@ -7,11 +7,11 @@ here or describe the gate instead.
 
 | Metric | Value | Command |
 |---|---|---|
-| Passing tests | 187 | `uv run pytest tests/ -q` |
+| Passing tests | 195 | `uv run pytest tests/ -q` |
 | Skipped / failed | 0 / 0 | `uv run pytest tests/ -q` |
-| Coverage (line + branch, `src/`) | 98.83% | `uv run pytest tests/ --cov=src` |
+| Coverage (line + branch, `src/`) | 98.84% | `uv run pytest tests/ --cov=src` |
 | Required gate | ≥ 90% line + branch | `pyproject.toml` → `[tool.coverage.report] fail_under` |
-| Statements / branches measured | 1249 / 454 | `uv run pytest tests/ --cov=src` |
+| Statements / branches measured | 1258 / 460 | `uv run pytest tests/ --cov=src` |
 | Modules in `src/tomorrow_never_dies/` | 11 | 6 concept cores + `scenario` + `mission` + `manuscript_variables` + `figures` + `__init__` |
 | Declared concepts | 6 | `src/tomorrow_never_dies/__init__.py::CONCEPTS` |
 | Figure generators | 6 | `src/tomorrow_never_dies/figures.py` (`FIGURE_BUILDERS`) |
@@ -38,7 +38,7 @@ Per-module coverage at the measured run:
 | `gps_denial.py` | 98.68% |
 | `radar_waveform.py` | 98.35% |
 | `media_manipulation.py` | 97.72% |
-| `manuscript_variables.py` | 96.15% |
+| `manuscript_variables.py` | 97.01% |
 
 Measured 2026-08-05 on Python 3.14.6 (darwin), CARVER canonical scenario,
 seed 7.

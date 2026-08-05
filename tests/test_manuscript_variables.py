@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+import yaml
 
 from tomorrow_never_dies.manuscript_variables import (
     generate_variables,
@@ -63,10 +63,8 @@ TOKEN_KEYS = (
     "WAVEFORM_UNMOD_RANGE_KM",
     "WAVEFORM_UNMOD_WIDTH_US",
     "PYTHON_VERSION",
-    "GENERATION_TIMESTAMP",
+    "MANUSCRIPT_DATE",
 )
-
-FIXED_NOW = datetime(2026, 8, 4, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def test_load_mission_config(project_root: Path) -> None:
@@ -89,11 +87,10 @@ def test_load_mission_config_not_mapping(tmp_path: Path) -> None:
 
 
 def test_generate_variables_keys(project_root: Path) -> None:
-    variables = generate_variables(project_root, now=FIXED_NOW)
+    variables = generate_variables(project_root)
     for key in TOKEN_KEYS:
         assert key in variables, key
     assert variables["CARVER_CODENAME"] == "CARVER"
-    assert variables["GENERATION_TIMESTAMP"] == "2026-08-04T12:00:00Z"
     assert float(variables["STEALTH_RCS_REDUCTION_DB"]) == pytest.approx(20.0)
     assert float(variables["STEALTH_RANGE_RATIO"]) == pytest.approx(
         0.316227766, rel=1e-3
@@ -105,14 +102,83 @@ def test_generate_variables_keys(project_root: Path) -> None:
 
 
 def test_generate_variables_deterministic(project_root: Path) -> None:
-    assert generate_variables(project_root, now=FIXED_NOW) == generate_variables(
-        project_root, now=FIXED_NOW
+    assert generate_variables(project_root) == generate_variables(project_root)
+
+
+def test_manuscript_date_is_the_committed_config_value(project_root: Path) -> None:
+    """The date token is read from config, not from the clock.
+
+    Binds the token to ``paper.date`` by value, so replacing the committed
+    date with anything clock-derived (which would not equal the config field
+    on any day but one) fails here as well as in the byte-identity test.
+    """
+    config = load_mission_config(project_root)
+    committed = config["paper"]["date"]
+    committed = committed if isinstance(committed, str) else committed.isoformat()
+    variables = generate_variables(project_root)
+    assert variables["MANUSCRIPT_DATE"] == committed
+
+
+def test_no_generated_token_looks_like_a_wall_clock(project_root: Path) -> None:
+    """No persisted token may carry a time-of-day.
+
+    A date alone cannot distinguish "committed" from "today", but a *time*
+    can only have come from a clock. This is the cheap in-process guard; the
+    real one is ``test_regeneration_is_byte_identical``.
+    """
+    variables = generate_variables(project_root)
+    clockish = re.compile(r"\d{1,2}:\d{2}(:\d{2})?")
+    offenders = sorted(k for k, v in variables.items() if clockish.search(v))
+    assert offenders == []
+
+
+def test_generate_variables_requires_a_committed_date(
+    project_root: Path, tmp_path: Path
+) -> None:
+    """A missing ``paper.date`` is an error, never a silent clock read."""
+    manuscript = tmp_path / "manuscript"
+    manuscript.mkdir()
+    source = (project_root / "manuscript" / "config.yaml").read_text(encoding="utf-8")
+    config = yaml.safe_load(source)
+    config["paper"].pop("date", None)
+    (manuscript / "config.yaml").write_text(yaml.safe_dump(config), encoding="utf-8")
+    with pytest.raises(ValueError, match=r"paper\.date"):
+        generate_variables(tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ('date: "2026-08-04"', "2026-08-04"),
+        ("date: 2026-08-04", "2026-08-04"),
+        ("date: 2026-08-04 12:00:00", "2026-08-04"),
+    ],
+)
+def test_manuscript_date_normalises_yaml_scalar_forms(
+    project_root: Path, tmp_path: Path, raw: str, expected: str
+) -> None:
+    """Quoted str, bare date, and bare datetime all render the same token.
+
+    PyYAML resolves these three spellings to ``str``, ``datetime.date`` and
+    ``datetime.datetime`` respectively; the rendered manuscript must not
+    depend on which one the config happens to use.
+    """
+    manuscript = tmp_path / "manuscript"
+    manuscript.mkdir()
+    config = yaml.safe_load(
+        (project_root / "manuscript" / "config.yaml").read_text(encoding="utf-8")
     )
+    config["paper"].pop("date", None)
+    text = yaml.safe_dump(config) + "\n"
+    # Re-inject the date verbatim so the YAML scalar form is preserved.
+    text = text.replace("paper:\n", f"paper:\n  {raw}\n", 1)
+    (manuscript / "config.yaml").write_text(text, encoding="utf-8")
+    assert generate_variables(tmp_path)["MANUSCRIPT_DATE"] == expected
 
 
 def test_manuscript_tokens_all_generated(project_root: Path) -> None:
     """Live gate: every {{TOKEN}} in a numbered prose section must resolve."""
-    variables = generate_variables(project_root, now=FIXED_NOW)
+    variables = generate_variables(project_root)
     token_re = re.compile(r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}")
     missing: list[str] = []
     for section in sorted((project_root / "manuscript").glob("[0-9]*.md")):
@@ -182,7 +248,7 @@ def test_every_generated_token_is_used_by_the_manuscript(project_root: Path) -> 
     The complementary direction (a referenced token nobody generates) is
     covered by ``test_manuscript_tokens_all_generated``.
     """
-    variables = generate_variables(project_root, now=FIXED_NOW)
+    variables = generate_variables(project_root)
     used: set[str] = set()
     for section in sorted((project_root / "manuscript").glob("[0-9]*.md")):
         used.update(
@@ -190,7 +256,7 @@ def test_every_generated_token_is_used_by_the_manuscript(project_root: Path) -> 
                 r"\{\{\s*([A-Za-z0-9_]+)\s*\}\}", section.read_text(encoding="utf-8")
             )
         )
-    # GENERATION_TIMESTAMP and PYTHON_VERSION are environment stamps; every
-    # other token must earn its place by appearing in the prose.
+    # MANUSCRIPT_DATE and PYTHON_VERSION are provenance stamps; every other
+    # token must earn its place by appearing in the prose.
     orphans = sorted(set(variables) - used)
     assert orphans == []

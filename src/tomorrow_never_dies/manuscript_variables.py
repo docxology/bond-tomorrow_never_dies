@@ -6,14 +6,21 @@ mission identity from ``manuscript/config.yaml`` and computes the concept
 metrics from the real domain modules via the canonical CARVER scenario
 (:mod:`tomorrow_never_dies.scenario`).
 
-Determinism: pass ``now=`` to pin ``GENERATION_TIMESTAMP``; the scenario
-metrics themselves are seed-fixed and never depend on the clock.
+Determinism: this function reads no clock. The manuscript's date comes from
+the committed ``paper.date`` field of ``manuscript/config.yaml``, and the
+scenario metrics are seed-fixed, so regenerating on an unchanged tree rewrites
+the same bytes. A wall-clock stamp used to be injected here as
+``GENERATION_TIMESTAMP``; it made every regeneration differ and silently
+falsified the package's own byte-identical claim, so it was removed rather
+than pinned. The one remaining environment-derived token, ``PYTHON_VERSION``,
+is a property of the interpreter, not of the moment — see the scope note in
+``docs/output_conventions.md``.
 """
 
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +52,27 @@ def load_mission_config(project_root: Path | str) -> dict[str, Any]:
     if not isinstance(config, dict):
         raise ValueError(f"{config_path} must contain a YAML mapping")
     return config
+
+
+def _manuscript_date(paper: dict[str, Any]) -> str:
+    """Return the committed manuscript date as an ISO ``YYYY-MM-DD`` string.
+
+    PyYAML resolves an unquoted ``date:`` scalar to :class:`datetime.date`
+    and a quoted one to :class:`str`; both are accepted and normalised, so
+    the rendered token does not depend on how the config was punctuated.
+    There is deliberately no fallback to the current date — a missing
+    ``paper.date`` is an error, not an invitation to read the clock.
+    """
+    value = paper.get("date")
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    raise ValueError(
+        "config.yaml must define 'paper.date' (a committed ISO date, e.g. 2026-08-04)"
+    )
 
 
 def _format_params() -> dict[str, str]:
@@ -154,18 +182,24 @@ def _format_metrics(metrics: dict[str, float]) -> dict[str, str]:
     }
 
 
-def generate_variables(
-    project_root: Path | str, *, now: datetime | None = None
-) -> dict[str, str]:
+def generate_variables(project_root: Path | str) -> dict[str, str]:
     """Generate the full ``{{TOKEN}}`` → value map for the CARVER manuscript.
+
+    Reads no clock: ``MANUSCRIPT_DATE`` is the committed ``paper.date`` from
+    ``manuscript/config.yaml``, so two regenerations of an unchanged tree
+    produce identical bytes.
 
     Args:
         project_root: Package root containing ``manuscript/config.yaml``.
-        now: Clock override for ``GENERATION_TIMESTAMP`` (determinism in
-            tests); defaults to the current UTC time.
 
     Returns:
         Mapping of token name to resolved string value.
+
+    Raises:
+        ValueError: If ``paper``/``keywords`` are malformed, or if
+            ``paper.date`` is missing — the manuscript date is a committed
+            fact, and defaulting it to the clock is exactly the bug this
+            function no longer has.
     """
     config = load_mission_config(project_root)
     paper = config.get("paper", {})
@@ -177,8 +211,9 @@ def generate_variables(
             "config.yaml must define 'paper' (mapping) and 'keywords' (list)"
         )
 
+    manuscript_date = _manuscript_date(paper)
+
     metrics = scenario_metrics(run_carver_scenario(seed=SCENARIO_SEED))
-    stamp = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     variables: dict[str, str] = {
         # Identity (config-driven, never hand-authored in prose).
@@ -190,9 +225,11 @@ def generate_variables(
         "CARVER_KEYWORDS": ", ".join(str(k) for k in keywords),
         "CARVER_OBJECTIVES": str(len(SCENARIO_PARAMS)),
         "CARVER_SEED": str(SCENARIO_SEED),
-        # Environment / generation.
+        # Environment / generation. No clock is read here: MANUSCRIPT_DATE is
+        # the committed config value, PYTHON_VERSION a property of the running
+        # interpreter.
         "PYTHON_VERSION": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        "GENERATION_TIMESTAMP": stamp,
+        "MANUSCRIPT_DATE": manuscript_date,
     }
     variables.update(_format_params())
     variables.update(_format_metrics(metrics))

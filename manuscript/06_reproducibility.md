@@ -4,7 +4,17 @@
 
 * **Fixed seed**: every stochastic draw flows from `numpy.random.default_rng({{CARVER_SEED}})`;
   identical inputs produce byte-identical trajectories.
-* **No wall-clock in outcomes**: mission provenance records `wall_time_s = 0`.
+* **No wall-clock in persisted artifacts**: mission provenance records
+  `wall_time_s = 0`, and no generation timestamp is injected into the
+  manuscript — the date in the experimental setup is the committed
+  `paper.date`. Regenerating twice on the same checkout and interpreter
+  therefore produces a byte-identical `output/` tree, figures included; this
+  is asserted, not asserted-about, by `test_regeneration_is_byte_identical`
+  in `tests/test_scripts_smoke.py`, which runs the generator twice across a
+  second boundary and compares every artifact byte for byte. The single
+  environment-derived token, `{{PYTHON_VERSION}}`, is a property of the
+  interpreter, so the byte-identical claim is scoped to a fixed interpreter;
+  the scenario numbers themselves are seeded and interpreter-independent.
 * **Canonical input hash**: the `script/driver` records a sha256
   fingerprint of `SCENARIO_PARAMS` so any outcome can be audited against its
   inputs without re-running the film.
