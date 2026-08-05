@@ -26,11 +26,15 @@ from tomorrow_never_dies.mission import (
 from tomorrow_never_dies.scenario import canonical_input_hash
 
 GADGET_NAMES = (
+    "carver_scenario",
+    "critical_reach",
+    "matched_filter",
     "media_campaign",
+    "navigation_cascade",
+    "opinion_dynamics",
     "radar_detection",
     "radar_equation",
-    "navigation_cascade",
-    "carver_scenario",
+    "raim_detection",
 )
 
 
@@ -56,7 +60,7 @@ def test_brief() -> None:
 def test_recon() -> None:
     provider = MissionProvider()
     report = provider.recon(ReconRequest(goal="probe the theater"))
-    assert len(report.findings) == 5
+    assert len(report.findings) == 8
     assert report.findings[0].label == "goal"
     assert report.findings[0].detail == "probe the theater"
 
@@ -66,8 +70,11 @@ def test_plan() -> None:
     plan = provider.plan(provider.brief())
     assert [step.name for step in plan.steps] == [
         "media",
+        "narrative",
         "stealth",
+        "waveform",
         "gps",
+        "integrity",
         "synthesize",
     ]
     assert all(step.action for step in plan.steps)
@@ -77,8 +84,16 @@ def test_execute() -> None:
     provider = MissionProvider()
     outcome = provider.execute(provider.plan(provider.brief()))
     assert outcome.success is True
-    assert outcome.results["steps_completed"] == 4
-    assert set(outcome.results["per_step"]) == {"media", "stealth", "gps", "synthesize"}
+    assert outcome.results["steps_completed"] == 7
+    assert set(outcome.results["per_step"]) == {
+        "media",
+        "narrative",
+        "stealth",
+        "waveform",
+        "gps",
+        "integrity",
+        "synthesize",
+    }
     assert outcome.provenance.seed == 7
     assert outcome.provenance.wall_time_s == 0.0
     assert outcome.provenance.input_hash == canonical_input_hash()

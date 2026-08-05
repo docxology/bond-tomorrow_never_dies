@@ -102,9 +102,15 @@ def snr_at_range(
     *,
     config: RadarConfig | None = None,
 ) -> float:
-    """Linear signal-to-noise ratio from the monostatic radar equation.
+    """Linear single-pulse signal-to-noise ratio from the monostatic radar equation.
 
-    ``SNR = P_t G^2 lambda^2 sigma n_p / ((4 pi)^3 R^4 k T0 B F L)``
+    ``SNR = P_t G^2 lambda^2 sigma / ((4 pi)^3 R^4 k T0 B F L)``
+
+    The result is the *per-pulse*, pre-integration SNR. Coherent pulse
+    integration is applied by :func:`detection_probability` via its ``pulses``
+    argument (which also carries the waveform's pulse-compression gain), so
+    integration gain is counted exactly once across the detection chain. See
+    ``radar_waveform.waveform_detection_range`` for the compression-aware path.
     """
     cfg = config or RadarConfig()
     if (
@@ -123,7 +129,7 @@ def snr_at_range(
     gain = 10 ** (cfg.gain_db / 10.0)
     noise_factor = 10 ** (cfg.noise_figure_db / 10.0)
     losses = 10 ** (cfg.losses_db / 10.0)
-    numerator = cfg.peak_power_w * gain**2 * lam**2 * rcs_sqm * cfg.pulses
+    numerator = cfg.peak_power_w * gain**2 * lam**2 * rcs_sqm
     denominator = (
         (4 * np.pi) ** 3
         * range_m**4
@@ -220,7 +226,8 @@ def detection_probability(
     """Probability of detection for a target at a given SNR.
 
     Args:
-        snr: Linear SNR (after coherent integration of ``pulses`` pulses).
+        snr: Linear **single-pulse** SNR (see :func:`snr_at_range`); coherent
+            integration gain is applied here via ``pulses``.
         p_fa: False-alarm probability setting the threshold.
         pulses: Coherently integrated pulse count (SNR gain is linear).
         fluctuation: ``"swerling0"`` (nonfluctuating, Marcum Q) or

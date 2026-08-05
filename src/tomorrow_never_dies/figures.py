@@ -1,14 +1,21 @@
 """CARVER figure generation — deterministic publication-ready visualizations.
 
-Three figures, one per concept, all drawn from the real domain modules with
-fixed scenario parameters (no RNG beyond the seeded simulations):
+Six figures across the six domain analyses, all drawn from the real domain
+modules with fixed scenario parameters (no RNG beyond the seeded
+simulations):
 
 * ``fig_disinformation`` — believing fraction over time, media campaign vs
   no-media baseline (media manipulation).
+* ``fig_narrative`` — bounded-confidence opinion trajectories (mean +/- 1 sd
+  band) under a media campaign, with the manufactured line (narrative control).
 * ``fig_stealth_detection`` — detection probability vs range for a reference
   and a low-RCS (stealth) target (stealth detection).
+* ``fig_waveform`` — compressed-pulse envelopes (dB) for the LFM chirp and
+  the Barker-13 code (pulse compression).
 * ``fig_gps_denial`` — position error vs jammer standoff distance, with the
   clean-sky error reference line (GPS denial).
+* ``fig_raim`` — RAIM detection probability vs measurement bias, with the
+  scenario's bias probe marked (GNSS integrity).
 
 The matplotlib backend is pinned to ``Agg`` so rendering is headless and
 byte-deterministic given the same input data.
@@ -28,6 +35,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from tomorrow_never_dies.gnss_integrity import (
+    detection_probability as raim_detection_probability,
+)
 from tomorrow_never_dies.gps_denial import (
     effective_cno_dbhz,
     jamming_to_noise_db,
@@ -36,6 +46,12 @@ from tomorrow_never_dies.gps_denial import (
 from tomorrow_never_dies.media_manipulation import (
     build_network,
     simulate_disinformation,
+)
+from tomorrow_never_dies.narrative_control import simulate_opinions
+from tomorrow_never_dies.radar_waveform import (
+    Waveform,
+    compress,
+    generate_waveform,
 )
 from tomorrow_never_dies.scenario import (
     SCENARIO_PARAMS,
@@ -213,6 +229,131 @@ def fig_gps_denial(project_root: Path | str) -> Path:
     return path
 
 
+def fig_narrative(project_root: Path | str) -> Path:
+    """Bounded-confidence opinion trajectories under a media campaign."""
+    narrative = SCENARIO_PARAMS["narrative"]
+    result = simulate_opinions(
+        int(narrative["n_agents"]),
+        SCENARIO_SEED,
+        confidence=float(narrative["confidence"]),
+        media_opinion=float(narrative["media_opinion"]),
+        media_weight=float(narrative["media_weight"]),
+        media_reach=float(narrative["media_reach"]),
+        steps=int(narrative["steps"]),
+    )
+    frames = np.asarray(result.trajectory)  # (steps+1, n)
+    rounds = np.arange(frames.shape[0])
+    mean = frames.mean(axis=1)
+    std = frames.std(axis=1)
+    lower = np.clip(mean - std, 0.0, 1.0)
+    upper = np.clip(mean + std, 0.0, 1.0)
+
+    figure, axis = plt.subplots(figsize=(7, 4.2))
+    axis.fill_between(rounds, lower, upper, alpha=0.25, label="Opinion mean +/- 1 sd")
+    axis.plot(rounds, mean, color="tab:blue", label="Mean opinion (media campaign)")
+    axis.axhline(
+        float(narrative["media_opinion"]),
+        color="tab:red",
+        linestyle="--",
+        linewidth=1,
+        label="Manufactured line",
+    )
+    axis.set_xlabel("Update round")
+    axis.set_ylabel("Opinion (0 = skeptic, 1 = convinced)")
+    axis.set_title("Narrative control: bounded-confidence opinion dynamics")
+    axis.grid(True, alpha=0.3)
+    axis.legend()
+    axis.set_ylim(0.0, 1.0)
+    path = Path(project_root) / FIGURES_DIR / "narrative_control.png"
+    _save(figure, path)
+    return path
+
+
+def fig_waveform(project_root: Path | str) -> Path:
+    """Compressed-pulse envelopes (dB) for the LFM chirp and Barker-13 code."""
+    wfm = SCENARIO_PARAMS["waveform"]
+    lfm = Waveform(
+        kind="lfm",
+        pulse_width_s=float(wfm["pulse_width_s"]),
+        bandwidth_hz=float(wfm["bandwidth_hz"]),
+        sample_rate_hz=float(wfm["sample_rate_hz"]),
+    )
+    barker = Waveform(
+        kind="barker13",
+        pulse_width_s=13.0e-6,
+        bandwidth_hz=13.0e6,
+        sample_rate_hz=13.0e6,
+    )
+
+    def normalized_db(waveform) -> tuple[np.ndarray, np.ndarray]:
+        echo = compress(generate_waveform(waveform), generate_waveform(waveform))
+        envelope = np.abs(echo)
+        peak = float(np.max(envelope))
+        level = 20.0 * np.log10(np.maximum(envelope, 1e-12) / peak)
+        center = int(np.argmax(envelope))
+        margin = round(0.5 * envelope.size)
+        lo = max(0, center - margin)
+        hi = min(envelope.size, center + margin + 1)
+        return np.arange(lo - center, hi - center), level[lo:hi]
+
+    figure, axis = plt.subplots(figsize=(7, 4.2))
+    for waveform, label, color in (
+        (lfm, "LFM chirp (B·T = 500)", "tab:blue"),
+        (barker, "Barker-13", "tab:orange"),
+    ):
+        x, y = normalized_db(waveform)
+        axis.plot(x, y, label=label, color=color)
+    axis.set_xlabel("Delay (samples from peak)")
+    axis.set_ylabel("Compressed power (dB)")
+    axis.set_title("Pulse compression: matched-filter range response")
+    axis.grid(True, alpha=0.3)
+    axis.legend()
+    axis.set_ylim(-45, 5)
+    path = Path(project_root) / FIGURES_DIR / "waveform_pulse_compression.png"
+    _save(figure, path)
+    return path
+
+
+def fig_raim(project_root: Path | str) -> Path:
+    """RAIM detection probability vs measurement bias, with the probe marked."""
+    integrity = SCENARIO_PARAMS["integrity"]
+    scenario = run_carver_scenario(seed=SCENARIO_SEED)
+    dof = int(scenario["integrity"]["dof"])
+    p_fa = float(integrity["p_fa"])
+    sigma = float(integrity["sigma_m"])
+    biases = np.linspace(0.0, 30.0, 61)
+    probabilities = np.asarray(
+        [
+            raim_detection_probability(float(b), dof=dof, p_fa=p_fa, sigma=sigma)
+            for b in biases
+        ]
+    )
+    probe = float(integrity["bias_probe_m"])
+    probe_pd = raim_detection_probability(probe, dof=dof, p_fa=p_fa, sigma=sigma)
+
+    figure, axis = plt.subplots(figsize=(7, 4.2))
+    axis.plot(
+        biases, probabilities * 100.0, color="tab:blue", label="Detection probability"
+    )
+    axis.axvline(
+        probe,
+        color="tab:red",
+        linestyle="--",
+        linewidth=1,
+        label=f"Scenario bias probe ({probe:.0f} m)",
+    )
+    axis.plot([probe], [probe_pd * 100.0], "o", color="tab:red")
+    axis.set_xlabel("Measurement bias (m)")
+    axis.set_ylabel("Detection probability (%)")
+    axis.set_title("RAIM: detecting a corrupted navigation measurement")
+    axis.grid(True, alpha=0.3)
+    axis.legend()
+    axis.set_ylim(0.0, 102.0)
+    path = Path(project_root) / FIGURES_DIR / "raim_detection.png"
+    _save(figure, path)
+    return path
+
+
 def render_figures(project_root: Path | str) -> dict[str, Path]:
     """Render all CARVER figures under ``output/figures/``.
 
@@ -224,7 +365,10 @@ def render_figures(project_root: Path | str) -> dict[str, Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     generators: dict[str, Callable[[Path], Path]] = {
         "disinformation": fig_disinformation,
+        "narrative": fig_narrative,
         "stealth_detection": fig_stealth_detection,
+        "waveform": fig_waveform,
         "gps_denial": fig_gps_denial,
+        "raim": fig_raim,
     }
     return {name: generator(root) for name, generator in generators.items()}

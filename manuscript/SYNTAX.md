@@ -20,8 +20,11 @@ never with a hardcoded number:
 | Label | PNG | Generator |
 |---|---|---|
 | `{#fig:disinformation}` | `output/figures/disinformation_propagation.png` | `src/tomorrow_never_dies/figures.py::fig_disinformation` |
+| `{#fig:narrative}` | `output/figures/narrative_control.png` | `src/tomorrow_never_dies/figures.py::fig_narrative` |
 | `{#fig:stealth}` | `output/figures/stealth_detection.png` | `src/tomorrow_never_dies/figures.py::fig_stealth_detection` |
+| `{#fig:waveform}` | `output/figures/waveform_pulse_compression.png` | `src/tomorrow_never_dies/figures.py::fig_waveform` |
 | `{#fig:gps}` | `output/figures/gps_denial.png` | `src/tomorrow_never_dies/figures.py::fig_gps_denial` |
+| `{#fig:raim}` | `output/figures/raim_detection.png` | `src/tomorrow_never_dies/figures.py::fig_raim` |
 
 ## Citations
 

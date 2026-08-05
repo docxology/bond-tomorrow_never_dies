@@ -12,18 +12,28 @@ operational contract; the shared BOND guardrail preamble governs every package
 
 ## Concepts
 
-The mission packages three deterministic analyses of Carver-style media
-warfare:
+The mission packages six deterministic analyses of Carver-style media
+warfare across three concept areas:
 
 1. **Disinformation propagation** (`media_manipulation.py`) — two-channel
    belief diffusion (media exposure + social spread) on a small-world
    network, plus greedy influence maximization and echo-chamber /
    amplification metrics.
-2. **Stealth-vessel detection** (`stealth_detection.py`) — monostatic radar
+2. **Narrative control** (`narrative_control.py`) — bounded-confidence
+   opinion dynamics (Hegselmann–Krause) with a Carver-style media injection;
+   polarization / bimodal-split metrics, media capture, and the critical
+   broadcast reach that tips the belief model.
+3. **Stealth-vessel detection** (`stealth_detection.py`) — monostatic radar
    equation, Marcum-Q / Swerling detection probabilities, detection range of
    a low-RCS hull (the *Sea Vengeance*).
-3. **GPS-denial impact** (`gps_denial.py`) — DOP geometry, jamming
+4. **Pulse compression** (`radar_waveform.py`) — LFM chirp and Barker-13
+   matched filtering: processing gain, range resolution, sidelobe levels,
+   and the detection-range gain against a stealth hull.
+5. **GPS-denial impact** (`gps_denial.py`) — DOP geometry, jamming
    degradation of C/N0, position-error growth, navigation failure cascades.
+6. **GNSS integrity** (`gnss_integrity.py`) — scipy-free chi-square /
+   parity-space RAIM: detection thresholds, HPL/VPL protection levels, and
+   bias-detection probability.
 
 ## Layer contract (enforced by `manuscript/layer_contract.yaml`)
 

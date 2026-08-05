@@ -18,15 +18,23 @@ bond_api`; the pure domain core depends on nothing but numpy.
 * `src/tomorrow_never_dies/media_manipulation.py` — belief-state model,
   Watts–Strogatz / Barabási–Albert networks, media + social spread,
   influence maximization, echo-chamber and amplification metrics.
+* `src/tomorrow_never_dies/narrative_control.py` — bounded-confidence opinion
+  dynamics (Hegselmann–Krause) with media injection; polarization /
+  bimodal-split / media-capture metrics and critical broadcast reach.
 * `src/tomorrow_never_dies/stealth_detection.py` — radar equation, Marcum-Q
   / Swerling detection probabilities, detection range, RCS metrics.
+* `src/tomorrow_never_dies/radar_waveform.py` — LFM / Barker-13 pulse
+  compression: matched filter, processing gain, resolution, sidelobes,
+  detection-range gain.
 * `src/tomorrow_never_dies/gps_denial.py` — constellation, DOP, jamming
   degradation, UERE/position error, navigation failure cascade.
+* `src/tomorrow_never_dies/gnss_integrity.py` — RAIM: chi-square quantile,
+  SVD parity space, detection threshold, HPL/VPL, noncentral bias detection.
 * `src/tomorrow_never_dies/scenario.py` — the canonical deterministic run
-  shared by the mission outcome, manuscript tokens, and figures.
+  (six blocks) shared by the mission outcome, manuscript tokens, and figures.
 * `src/tomorrow_never_dies/mission.py` — the BOND-API `MissionProvider`.
 * `src/tomorrow_never_dies/manuscript_variables.py` — `{{TOKEN}}` map.
-* `src/tomorrow_never_dies/figures.py` — three deterministic figures.
+* `src/tomorrow_never_dies/figures.py` — six deterministic figures.
 
 ## How to add an algorithm
 

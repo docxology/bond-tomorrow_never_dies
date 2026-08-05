@@ -10,8 +10,11 @@ must be versioned lives under `output/`.
 | `output/data/manuscript_variables.json` | `scripts/z_generate_manuscript_variables.py` | manuscript injection |
 | `output/manuscript/*.md` | `scripts/z_generate_manuscript_variables.py` | rendered PDF / review |
 | `output/figures/disinformation_propagation.png` | `src/tomorrow_never_dies/figures.py` | `manuscript/03_results.md` |
+| `output/figures/narrative_control.png` | `src/tomorrow_never_dies/figures.py` | `manuscript/03_results.md` |
 | `output/figures/stealth_detection.png` | `src/tomorrow_never_dies/figures.py` | `manuscript/03_results.md` |
+| `output/figures/waveform_pulse_compression.png` | `src/tomorrow_never_dies/figures.py` | `manuscript/03_results.md` |
 | `output/figures/gps_denial.png` | `src/tomorrow_never_dies/figures.py` | `manuscript/03_results.md` |
+| `output/figures/raim_detection.png` | `src/tomorrow_never_dies/figures.py` | `manuscript/03_results.md` |
 
 ## Regeneration
 

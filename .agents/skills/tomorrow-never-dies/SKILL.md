@@ -38,8 +38,15 @@ uv run mypy src/ scripts/
 | Concept | Module | Core functions |
 |---|---|---|
 | Disinformation propagation | `media_manipulation.py` | `build_network`, `simulate_disinformation`, `influence_maximization`, `echo_chamber_coefficient`, `amplification_factor` |
+| Narrative control | `narrative_control.py` | `simulate_opinions`, `bimodal_split`, `media_capture`, `critical_media_reach` |
 | Stealth-vessel detection | `stealth_detection.py` | `snr_at_range`, `detection_probability`, `marcum_q1`, `detection_range`, `roc_curve`, `rcs_reduction_db` |
+| Pulse compression | `radar_waveform.py` | `Waveform`, `generate_waveform`, `compress`, `peak_sidelobe_ratio`, `processing_gain`, `waveform_detection_range` |
 | GPS-denial impact | `gps_denial.py` | `walker_constellation`, `compute_dop`, `jamming_to_noise_db`, `effective_cno_dbhz`, `uere_meters`, `simulate_navigation_cascade` |
+| GNSS integrity (RAIM) | `gnss_integrity.py` | `chi_square_cdf`/`ppf`, `parity_matrix`, `protection_levels`, `detection_probability`, `integrity_availability` |
+
+Six figures live in `src/tomorrow_never_dies/figures.py`; the film's gadgets
+(now nine) are registered via the unchanged `register_gadgets` /
+`GADGET_REGISTRY` convention.
 
 ## Integration
 

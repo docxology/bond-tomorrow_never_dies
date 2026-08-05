@@ -70,7 +70,10 @@ def test_z_generate_manuscript_variables() -> None:
     figures_dir = PROJECT_ROOT / "output" / "figures"
     for name in (
         "disinformation_propagation.png",
+        "narrative_control.png",
         "stealth_detection.png",
+        "waveform_pulse_compression.png",
         "gps_denial.png",
+        "raim_detection.png",
     ):
         assert (figures_dir / name).is_file(), name

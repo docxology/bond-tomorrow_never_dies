@@ -1,5 +1,33 @@
 # TODO — CARVER (tomorrow_never_dies)
 
+## Phase 4 — deep improvement (DONE)
+
+Added three more pure-domain algorithm modules, deepening each concept area:
+
+- `narrative_control.py` — bounded-confidence opinion dynamics
+  (Hegselmann–Krause) with a Carver-style media injection; polarization /
+  bimodal-split metrics, media capture, and `critical_media_reach`
+  (bisection on the broadcast reach that tips the belief model).
+- `radar_waveform.py` — pulse compression: LFM chirp and Barker-13
+  matched filtering; processing gain, range resolution, peak sidelobe
+  ratio, and `waveform_detection_range` (fourth-root gain).
+- `gnss_integrity.py` — RAIM: scipy-free chi-square quantile, SVD parity
+  space, detection threshold, HPL/VPL protection levels, and noncentral
+  chi-square bias-detection probability.
+
+Deepened the canonical scenario to six blocks (media / narrative / stealth /
+waveform / gps / integrity), added three figures (narrative, waveform, raim),
+three new manuscript tokens families (`NARRATIVE_*`, `WAVEFORM_*`, `RAIM_*`),
+new BOND gadgets (`opinion_dynamics`, `critical_reach`, `matched_filter`,
+`raim_detection`), and updated the manuscript + bibliography (Hegselmann–Krause,
+DeGroot, Barker, Parkinson–Axelrad, Brown). **Protocol shape unchanged**: the
+frozen `bond_api.MissionProvider` and the `GADGETS`/`register_gadgets`/
+`GADGET_REGISTRY` convention are preserved; discovery and serialization round-
+trip unchanged. Fixes hardened along the way: integration gain is now counted
+exactly once across `snr_at_range` → `detection_probability`, and the parity
+matrix is built from the full SVD (not complete-QR, whose reduced shape varies
+in numpy).
+
 ## What phase-2 built (DONE)
 
 - **Pure domain core** (infrastructure-free, deterministic, real math):

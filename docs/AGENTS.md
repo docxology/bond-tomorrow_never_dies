@@ -26,9 +26,10 @@ package. Every document here is a hard constraint, not a suggestion.
 
 ## Key conventions
 
-* **Pure domain core**: `media_manipulation.py`, `stealth_detection.py`,
-  `gps_denial.py`, `scenario.py` are stdlib + numpy only; they never import
-  `infrastructure.*` or `bond_api`.
+* **Pure domain core**: `media_manipulation.py`, `narrative_control.py`,
+  `stealth_detection.py`, `radar_waveform.py`, `gps_denial.py`,
+  `gnss_integrity.py`, `scenario.py` are stdlib + numpy only; they never
+  import `infrastructure.*` or `bond_api`.
 * **Single protocol adapter**: `mission.py` is the only contact with
   `bond_api` and registers CARVER's gadgets with the BOND `GadgetRegistry`.
 * **Zero mocks**: no `unittest.mock` / `MagicMock` / `@patch` anywhere in
@@ -46,8 +47,11 @@ uv run pytest tests/ --cov=src --cov-fail-under=90 -q
 grep -r "unittest.mock\|MagicMock\|@patch\|create_autospec" tests/ || echo Clean
 rg -nE "^(from|import) infrastructure|^(from|import) bond_api" \
     src/tomorrow_never_dies/media_manipulation.py \
+    src/tomorrow_never_dies/narrative_control.py \
     src/tomorrow_never_dies/stealth_detection.py \
+    src/tomorrow_never_dies/radar_waveform.py \
     src/tomorrow_never_dies/gps_denial.py \
+    src/tomorrow_never_dies/gnss_integrity.py \
     src/tomorrow_never_dies/scenario.py || echo Clean
 rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' || echo Clean
 ```

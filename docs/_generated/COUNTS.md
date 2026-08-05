@@ -6,9 +6,12 @@ and update the numbers below.
 
 | Metric | Value | Command |
 |---|---|---|
-| Passing tests | 96 | `uv run pytest tests/ -q` |
+| Passing tests | 126 | `uv run pytest tests/ -q` |
 | Skipped / failed | 0 / 0 | `uv run pytest tests/ -q` |
-| Coverage (line + branch, `src/`) | 95.77% | `uv run pytest tests/ --cov=src` |
+| Coverage (line + branch, `src/`) | 96.48% | `uv run pytest tests/ --cov=src` |
 | Required gate | ≥ 90% line + branch | `pyproject.toml` → `[tool.coverage.report] fail_under` |
+| Domain modules | 10 | `src/tomorrow_never_dies/*.py` (6 concept cores + scenario + adapter + vars + figures) |
+| Figure generators | 6 | `src/tomorrow_never_dies/figures.py` |
+| BOND gadgets | 9 | `src/tomorrow_never_dies/mission.py::GADGETS` |
 
 Generated 2026-08-04 (CARVER canonical scenario, seed 7).

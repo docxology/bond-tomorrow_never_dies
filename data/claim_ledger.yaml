@@ -41,3 +41,31 @@ claims:
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/disinformation_propagation.png
+  - claim_id: lfm-time-bandwidth-gain
+    kind: number
+    value: 500.0
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/radar_waveform.py processing_gain B*T for the LFM chirp
+    source_tier: project_source
+    freshness: active
+    artifact_path: output/figures/waveform_pulse_compression.png
+  - claim_id: barker-uniform-sidelobe-floor
+    kind: number
+    value: -22.28
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/radar_waveform.py barker13 PSLR (uniform -22.3 dB)
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/figures/waveform_pulse_compression.png
+  - claim_id: raim-hpl-scenario
+    kind: number
+    value: 15.4
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/gnss_integrity.py protection_levels on the canonical constellation
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/figures/raim_detection.png
+  - claim_id: opinion-bimodal-split
+    kind: range
+    value: "0.0 < bimodal_split < 1.0"
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/narrative_control.py canonical bounded-confidence run
+    source_tier: generated_metric
+    freshness: active
+    artifact_path: output/figures/narrative_control.png

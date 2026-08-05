@@ -9,7 +9,14 @@ from tomorrow_never_dies.figures import render_figures
 
 def test_render_figures(tmp_path: Path) -> None:
     paths = render_figures(tmp_path)
-    assert set(paths) == {"disinformation", "stealth_detection", "gps_denial"}
+    assert set(paths) == {
+        "disinformation",
+        "narrative",
+        "stealth_detection",
+        "waveform",
+        "gps_denial",
+        "raim",
+    }
     for name, path in paths.items():
         assert path.is_file(), name
         assert path.suffix == ".png"

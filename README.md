@@ -4,13 +4,17 @@
 PROJECT BOND film package.
 
 A deterministic, infrastructure-free mission package that turns Elliot
-Carver's media-warfare playbook into three reproducible scientific analyses:
+Carver's media-warfare playbook into six reproducible scientific analyses
+(three original concept areas, deepened in phase 4 with three more):
 
 | Concept | Module | What it computes |
 |---|---|---|
 | Disinformation propagation | `media_manipulation.py` | belief diffusion on a social network with media-campaign injection and greedy influence maximization |
+| Narrative control | `narrative_control.py` | bounded-confidence opinion dynamics (Hegselmann–Krause) with media injection; echo-chamber polarization, media capture, critical reach |
 | Stealth-vessel detection | `stealth_detection.py` | radar equation, Marcum-Q / Swerling detection probabilities, detection range of a low-RCS hull |
+| Pulse compression | `radar_waveform.py` | LFM / Barker-13 matched filtering: processing gain, range resolution, sidelobe levels, detection-range gain |
 | GPS-denial impact | `gps_denial.py` | satellite geometry and DOP, jamming degradation of C/N0, position-error growth, navigation failure cascades |
+| GNSS integrity (RAIM) | `gnss_integrity.py` | chi-square/parity-space detection, HPL/VPL protection levels, bias-detection probability |
 
 The same core is exposed through the **FROZEN `bond_api` `MissionProvider`
 protocol** (codename THE PROTOCOL): `src/tomorrow_never_dies/mission.py` lets

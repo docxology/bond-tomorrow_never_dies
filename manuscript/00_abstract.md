@@ -3,15 +3,20 @@
 **{{CARVER_IDENTITY}}: CARVER — Special-Agent Mission Software** (*{{CARVER_SUBTITLE}}*).
 
 CARVER is a deterministic mission-software package that turns the media-warfare
-playbook of Elliot Carver into three quantitative, reproducible analyses. A
-disinformation model simulates how a global broadcast campaign converts a
-social network to a manufactured belief: under the canonical scenario,
-{{MEDIA_BELIEF_SHARE_PCT}}% of agents believe the message by the end of the
-campaign. A radar model quantifies how a low-RCS stealth hull evades
-detection, shrinking the detection range against a {{STEALTH_RCS_REDUCTION_DB}} dB
-RCS reduction to {{STEALTH_RANGE_KM}} km. And a GPS-denial model shows how a single
-jammer degrades navigation — position error grows from {{GPS_ERROR_CLEAN_M}} m to
-{{GPS_ERROR_JAMMED_M}} m — and cascades through a maritime dependency network,
-failing {{GPS_CASCADE_FRACTION}} of the fleet's systems.
+playbook of Elliot Carver into six quantitative, reproducible analyses. A
+disinformation model simulates how a broadcast campaign converts a social
+network to a manufactured belief — {{MEDIA_BELIEF_SHARE_PCT}}% by campaign end — and
+a bounded-confidence narrative model shows how a *selective* broadcast pulls
+the audience mean {{NARRATIVE_MEDIA_CAPTURE}}% toward the manufactured line while
+fragmenting it into echo chambers (bimodal split {{NARRATIVE_BIMODAL_SPLIT}}; the
+tipping point is a reach of just {{NARRATIVE_CRITICAL_REACH_PCT}}%). A radar model
+finds that a {{STEALTH_RCS_REDUCTION_DB}} dB low-RCS reduction drops a stealth
+hull's detection range to {{STEALTH_RANGE_KM}} km, but pulse compression
+({{WAVEFORM_GAIN_DB}} dB, {{WAVEFORM_RES_M}} m resolution, {{WAVEFORM_PSLR_DB}} dB range
+sidelobes) restores it to {{WAVEFORM_RANGE_KM}} km. A GPS-denial model degrades
+navigation error from {{GPS_ERROR_CLEAN_M}} m to {{GPS_ERROR_JAMMED_M}} m and fails
+{{GPS_CASCADE_FRACTION}} of the maritime dependency network; its RAIM guardian
+bounds the damage (HPL {{RAIM_HPL_M}} m) and detects a {{RAIM_BIAS_M}} m corrupted
+navigation measurement with {{RAIM_PD}}% probability.
 
 Keywords: {{CARVER_KEYWORDS}}.
