@@ -1,127 +1,354 @@
-# TODO — CARVER (tomorrow_never_dies)
+# TODO — tomorrow_never_dies (CARVER)
 
-Open work only. Completed phases are summarized at the bottom as a build
-record, not as a task list.
+CARVER is the PROJECT BOND mission package for *Tomorrow Never Dies* (1997): six
+deterministic domain models arranged as three attack/counter pairs (media
+manipulation vs narrative control, stealth detection vs pulse compression, GPS
+denial vs GNSS integrity), one canonical seeded scenario that every published
+number reads from, a `bond_api` `MissionProvider` adapter, six figures, and a
+fully tokenized manuscript. **Verified state, measured this session on
+2026-08-05 (Python 3.14.6, darwin): 187 passed, 0 failed, 0 skipped; 98.83%
+line+branch coverage over `src/` (1249 statements / 454 branches, 6 statements
+and 14 branch legs missed); `ruff check`, `ruff format --check` and `mypy src/`
+all clean.** The phase-6 adversarial-audit remediation is complete — all 11
+findings in `output/verify/tomorrow_never_dies.json` were checked against the
+tree and none is still true. What follows is what is open now.
 
-## Open — integration points
+Provenance of each item is tagged: **[U*n*]** = entry *n* of
+`../output/verify/tomorrow_never_dies.unresolved.json` (the five things the
+remediation pass could not close); **[new]** = found while writing this file and
+not yet recorded anywhere else.
 
-* **Provenance persistence.** Mission outcomes carry the protocol's
-  `Provenance` (package version, seed, canonical input hash, `wall_time_s=0`)
-  but nothing writes it to a sidecar. Bind to
-  `bond_utilities.mission_io.record_provenance_outcome` once the shared
-  provenance contract is wired into the suite.
-  *Acceptance:* a mission outcome's `input_hash` matches a persisted
-  `provenance.input_hash` on disk, asserted in `tests/test_mission.py`.
-  *Blocked on:* the shared sidecar contract, which is not this package's to
-  define.
+## Open work
 
-## Open — modelling
+### Correctness
 
-* **Fluctuating-target detection in the canonical scenario.**
-  `stealth_detection.detection_probability` implements Swerling-1, and it is
-  tested, but `run_carver_scenario` only ever exercises Swerling-0. The
-  published detection ranges therefore describe a nonfluctuating target.
-  `07_scope_and_related_work.md` now states this restriction explicitly; the
-  remaining work is to add a Swerling-1 block to the scenario and report both
-  cases side by side.
-* **Barker-13 is analysed but not carried through.** The scenario computes
-  its gain and sidelobe floor, and the results section reports the trade, but
-  the detection-range recovery is only computed for the LFM chirp. Computing
-  `waveform_detection_range` for the Barker code too would let the manuscript
-  make the reach-vs-sidelobes trade quantitative on both axes rather than one.
-* **Cascade propagation is single-parameter.** `simulate_navigation_cascade`
-  applies one `propagation_factor` to every edge. Per-edge coupling weights
-  would let the maritime network distinguish "depends on for navigation" from
-  "depends on for scheduling", which is the distinction the film's plot
-  actually turns on.
+**C1 — `data/claim_ledger.yaml` holds two measurably stale values. [new]**
 
-## Not in scope
+The ledger is the package's declared evidence registry for numbers that are
+*not* `{{TOKEN}}`-injected. Two of its ten rows no longer match the code they
+cite, and nothing detected it because nothing reads the file (see V1):
 
-* No operational radar/GPS/fleet tooling — this is a didactic mission model.
-* No `infrastructure.*` reuse; the pure core is intentionally standalone.
-* No changes to the `MissionProvider` surface or the gadget convention —
-  they are frozen and consumed fleet-wide.
+| Row | File:line | Declared | Measured today |
+|---|---|---|---|
+| `raim-hpl-scenario` | `data/claim_ledger.yaml:58-64` | `15.4` | `integrity_hpl_m = 19.877235679354833` |
+| `barker-uniform-sidelobe-floor` | `data/claim_ledger.yaml:51-57` | `-22.28` (the textbook ideal) | `waveform_barker_pslr_db = -22.15810794619039` (the sampled value the code returns) |
 
----
+`raim-hpl-scenario` went stale in phase 6, when `walker_constellation` was
+rewritten from a fake sky into real Walker-delta geometry (visible satellites
+22 → 8, RAIM dof 18 → 4); HPL moved with it and the ledger did not.
+A third row, `marcum-floor-at-zero-snr` (`data/claim_ledger.yaml:16-22`),
+declares `1.0e-4` for "detection_probability at SNR=0 equals P_fa" while the
+canonical scenario runs `p_fa = 1e-06` — decide whether that row states a
+general property (then it should not carry a scenario-specific value) or a
+scenario number (then it is wrong), and rewrite it either way.
 
-## Build record
+*Done looks like:* every `value:` in `data/claim_ledger.yaml` is re-derived from
+a live call and matches it, with `source:` naming the exact function.
+*Command:*
+```bash
+uv run python -c "
+from tomorrow_never_dies.scenario import run_carver_scenario, scenario_metrics
+m = scenario_metrics(run_carver_scenario())
+print(m['integrity_hpl_m'], m['waveform_barker_pslr_db'])"
+```
+compared row-by-row against the ledger — and, once V1 lands, `uv run pytest
+tests/test_claim_ledger.py` going green.
 
-**Phase 6 — adversarial audit remediation (done).** An external audit found
-the phase-5 record below overstated its reach, and it was right. Fixed, with
-each repair mutation-tested (break the guarded thing, confirm the gate goes
-red):
+**C2 — `radar_waveform._mainlobe_half_width` has an unreachable branch with a
+misleading comment. [new]**
 
-* `gnss_integrity.detection_probability` claimed the parity projection
-  preserves a single-satellite bias norm and used noncentrality `(b/σ)²`. It
-  does not: the correct value is `P_ii (b/σ)²` with `P_ii < 1`, and the
-  module's own `test_statistic` disagreed with it (39.81 vs the assumed
-  44.44). Added `parity_projection_factors`, made the factor a *required*
-  argument — no default that silently restores the optimistic number — and
-  the published RAIM detection probability fell from 65.9% to 25.2%
-  (worst-placed satellite; 54.2% best-placed), both now reported.
-* `walker_constellation` had no orbital-plane structure at all: azimuth was
-  `(plane_phase + uniform(0,360)) % 360`, which is just uniform, and
-  elevation was `uniform(5, 90)`, so 22 of 24 satellites cleared the mask.
-  Replaced with a real Walker-delta pattern propagated as orbital geometry
-  and projected onto a receiver's sky: 8 visible, PDOP 1.70 (was 1.21), RAIM
-  dof 4 (was 18). Every downstream GPS/RAIM number moved accordingly.
-* `waveform_detection_range` banked the full `B·T` compression gain on a
-  noise floor ten times narrower than the waveform occupied — ~10 dB counted
-  twice. The noise bandwidth now follows the waveform; the reported LFM range
-  is 108.2 km (was 192.3 km). The 373% improvement survives because the
-  baseline is now an equal-*resolution* unmodulated pulse, which is the only
-  comparison in which that number means anything.
-* The docs' "three belief states" were two: `UNAWARE` was never assigned in
-  any code path. Removed the dead state; docs, manuscript and `state_counts`
-  now say two.
-* The pure-domain import ban was documented as covering `scenario.py` but
-  iterated over `CONCEPTS`, which excludes it. The scanned list now comes
-  from `layer_contract.yaml`.
-* "Jamming pushes effective C/N0 negative" was false at the canonical
-  standoff (+10.5 dB-Hz). Corrected, and the figure now shades the
-  short-standoff region where the code-tracking model is extrapolated past a
-  receiver's lock threshold.
-* `scenario.py` re-derived integrity availability inline instead of calling
-  the exported `integrity_availability`; it now calls it, and a structural
-  gate rejects a re-introduced inline copy (a numerically identical duplicate
-  passes every value test, so a value test could not have caught this).
-* `tests/test_figures.py` reached 100% coverage of `figures.py` while
-  asserting only that six PNGs exceeded 1000 bytes. Figures are now built by
-  pure `build_*` functions and the tests compare the plotted series against
-  the domain modules; swapping two datasets or plotting the flattering RAIM
-  curve now fails.
-* `references.bib` was entirely uncited and bound to nothing. `SYNTAX.md` no
-  longer instructs a citation convention nothing follows, and
-  `tests/test_references.py` binds the `.bib` to `99_references.md`
-  entry-for-entry.
+`src/tomorrow_never_dies/radar_waveform.py:164-168` ends with
+`return 1  # barker13: the mainlobe is the zero lag only`, but its only caller
+is `peak_sidelobe_ratio` at `radar_waveform.py:187-188`, inside
+`if waveform.kind == "lfm":`. The barker13 path at
+`radar_waveform.py:192-200` measures at chip multiples and never calls the
+helper. Line 168 is dead — it is one of the six uncovered statements in the
+measured run — and the comment documents a behaviour no execution reaches.
 
-**Phase 5 — documentation truth + defect sweep (done, but overstated).** The
-original claim here — "brought every doc and manuscript section into agreement
-with the phase-4 code" — was not true: the two severe defects and four lesser
-ones listed under phase 6 above survived it. What it actually did: tokenized the last
-hand-authored numbers (Barker-13 sidelobe floor, stealth range loss, campaign
-lift) and all scenario *inputs* in the experimental-setup section; added
-`tests/test_package_surface.py` (concept-list drift, import purity, no
-exception handlers) and three manuscript gates (bare-numeral scan with a
-positive control, orphan-token scan). Fixed genuine defects: the media-target
-seed was an additive offset that left the sort order — and therefore the
-selected audience — effectively seed-independent; `simulate_navigation_cascade`
-raised `KeyError` mid-cascade on an unknown dependent instead of validating at
-the boundary; `_media_targets` took an unused `rng`; `CONCEPTS` and several
-module docstrings still described three concepts; the RAIM module docstring
-claimed QR where the code uses SVD; the debrief hardcoded a "20 dB / two-thirds"
-lesson.
+*Done looks like:* either the helper is narrowed to LFM (the fallback deleted,
+the comment with it) or a caller genuinely reaches it. Either way
+`radar_waveform.py` reports no missed statements.
+*Command:* `uv run pytest tests/test_radar_waveform.py --cov=src/tomorrow_never_dies/radar_waveform.py --cov-report=term-missing`
+— expect no `168` in the Missing column.
 
-**Phase 4 — deep improvement (done).** Added `narrative_control.py`,
-`radar_waveform.py`, and `gnss_integrity.py`; deepened the canonical scenario
-to six blocks; added three figures, three token families, and four gadgets;
-extended the bibliography (Hegselmann–Krause, DeGroot, Barker,
-Parkinson–Axelrad, Brown). Hardened along the way: integration gain is now
-counted exactly once across `snr_at_range` → `detection_probability`, and the
-parity matrix is built from the full SVD rather than complete-QR (whose
-reduced shape varies in numpy). Protocol shape unchanged.
+**C3 — `README.md:93-94` claims a coverage property the suite does not have. [new]**
 
-**Phase 2 — conversion (done).** Built the pure domain core
-(`media_manipulation`, `stealth_detection`, `gps_denial`, `scenario`), the
-`bond_api` adapter in `mission.py`, the thin phase CLIs, the manuscript with
-token injection, and the zero-mock test suite.
+"≥90% line + branch coverage on `src/` is the enforced floor
+(`--cov-fail-under=90`); every validation branch is exercised." The second
+clause is false: three `raise ValueError` statements are never executed by the
+suite (see V2). The floor claim is true and measured; the validation claim is
+not.
+
+*Done looks like:* either V2 closes (the claim becomes true) or `README.md:94`
+drops/qualifies the clause. Do not soften it to something unfalsifiable.
+*Command:* `uv run pytest tests/ --cov=src --cov-report=term-missing` — the
+Missing column contains no line that is a bare `raise`.
+
+### Verification
+
+**V1 — `data/claim_ledger.yaml` is bound by nothing. [new]**
+
+`grep -rn claim_ledger` over the tree returns only `data/AGENTS.md:5` and
+`data/README.md:9` — two prose descriptions. No test, no script, and no
+pipeline stage in this package reads the file, so every row can drift from the
+code it cites without a gate going red. C1 is the proof that this already
+happened. `data/AGENTS.md` instructs "Re-run evidence validation / pipeline
+stages that consume the ledger" — there are none in this package.
+
+*Done looks like:* a test (e.g. `tests/test_claim_ledger.py`) parses
+`data/claim_ledger.yaml` and, for every row whose `source` names a callable in
+`src/`, calls it and asserts the declared `value` — and the test is
+mutation-checked by editing one `value:` and confirming it goes red.
+*Command:* `uv run pytest tests/test_claim_ledger.py -v`, then
+`python - <<'EOF'` perturbing one row and re-running to confirm a failure.
+
+**V2 — three validation raises are never executed. [new]**
+
+From the measured run's Missing column:
+
+| File:line | Unexercised guard |
+|---|---|
+| `src/tomorrow_never_dies/gps_denial.py:495` | `gps_weights[node]` is not a number (bool excluded) |
+| `src/tomorrow_never_dies/gps_denial.py:497` | `gps_weights[node]` outside `[0, 1]` |
+| `src/tomorrow_never_dies/manuscript_variables.py:176` | `config.yaml` lacks a mapping `paper` or a list `keywords` |
+
+`tests/test_gps_denial.py` covers the analogous guards on
+`inclination_deg`/`azimuth_deg`/`elevation_deg`/`mask_angle_deg`
+(`tests/test_gps_denial.py:93,309,311,317`) but stops before
+`simulate_navigation_cascade`'s weight validation. This is what makes C3 false.
+
+*Done looks like:* three `pytest.raises(ValueError, match=...)` cases, one per
+line, matching on the message text.
+*Command:* `uv run pytest tests/ --cov=src --cov-report=term-missing` — expect
+`gps_denial.py` and `manuscript_variables.py` at 100% statements.
+
+**V3 — fourteen branch legs are never taken. [new]**
+
+Measured partial branches, all currently invisible to the suite:
+
+| File → branch | Untested case |
+|---|---|
+| `figures.py 253->264` | the C/N0 sweep contains **no** lost-lock point, so no red shading is drawn |
+| `gnss_integrity.py 119->124`, `323->328` | the chi-square / noncentral series exhausts `_GAMMA_MAX_TERMS` / `_POISSON_MAX_K` without converging |
+| `media_manipulation.py 164->155, 184, 188->195, 195->179, 436` | Barabási–Albert attachment exhaustion (`total <= 0`) and greedy influence-max exhaustion (`best_node is None`) |
+| `mission.py 364->371` | `debrief` receives an outcome with no `stealth` step |
+| `narrative_control.py 108->112` | `media_reach == 0`, i.e. the empty exposed set |
+| `radar_waveform.py 168` | see C2 — this one is unreachable, not merely untested |
+
+The two series-truncation legs are the ones that matter most: they are the
+numerical fallbacks of the scipy-free CDFs the whole RAIM chain sits on, and
+nothing establishes what the functions return when they do not converge.
+
+*Done looks like:* each leg is either exercised by a test or removed as
+unreachable with a comment saying why. No `->` entries in the Missing column.
+*Command:* `uv run pytest tests/ --cov=src --cov-report=term-missing`.
+
+**V4 — the canonical scenario exercises only Swerling-0. [U1]**
+
+`stealth_detection.detection_probability` implements and tests Swerling-1
+(`src/tomorrow_never_dies/stealth_detection.py:224-270`,
+`FLUCTUATION_MODELS` at line 50), but `run_carver_scenario` never passes
+`fluctuation="swerling1"` — grep for `swerling` in
+`src/tomorrow_never_dies/scenario.py` returns nothing. Every published
+detection range therefore describes a nonfluctuating target. This is disclosed
+honestly in `manuscript/07_scope_and_related_work.md` (Stealth-vessel
+detection bullet), so it is not a false claim — it is an untested-in-anger
+code path that the package advertises.
+
+*Done looks like:* the scenario's stealth block reports both cases side by
+side and `tests/test_scenario.py` asserts the Swerling-1 range is strictly
+shorter than the Swerling-0 range at the same `p_d_target`; the 07_scope
+bullet is then narrowed to state which figure is which rather than that one is
+absent.
+*Command:* `uv run pytest tests/test_scenario.py -v`.
+
+### Documentation
+
+**D1 — the lineage-grep in the Verify block can never return zero. [new]**
+
+`AGENTS.md:93` prescribes
+`rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock'   # aim zero`.
+Run verbatim it returns **2** hits, both inside `AGENTS.md` itself (lines 7 and
+12), where the lineage rule is written down. A verification step whose stated
+pass condition is unreachable trains the reader to ignore its output.
+
+*Done looks like:* the command excludes the file that documents the rule (e.g.
+`--glob '!AGENTS.md'`) or the comment states the true expected count and where
+those hits live.
+*Command:* run the command in `AGENTS.md:93` exactly as written; its output
+matches the stated expectation.
+
+**D2 — `docs/_generated/COUNTS.md` is accurate today and must be re-measured, not edited. [new]**
+
+Checked this session: the file's 187 tests / 98.83% / 1249 statements / 454
+branches and every per-module percentage match the run above exactly, so
+nothing is open. Recording it here only so the next person knows the file is
+generated evidence with a measurement date (`2026-08-05`, Python 3.14.6) and
+goes stale the moment `src/` or `tests/` changes.
+
+*Done looks like:* after any change to `src/` or `tests/`, the table is
+rewritten from a real run, including the trailing measurement line.
+*Command:* `uv run pytest tests/ --cov=src` and transcribe.
+
+### Extension
+
+**E1 — persist mission provenance to a sidecar. [was blocked, now unblocked]**
+
+The previous TODO recorded this as "blocked on the shared sidecar contract,
+which is not this package's to define". That is no longer true and the entry
+was stale: `bond_utilities.mission_io.record_provenance_outcome` exists
+(`../bond-utilities/src/bond_utilities/mission_io.py:153-206`) and two sibling
+packages already call it — `../goldeneye/scripts/execute.py:23,42-50` and
+`../the_world_is_not_enough/scripts/execute.py`. CARVER has everything the
+helper wants: `scenario.canonical_input_hash` (`scenario.py:161`),
+`SCENARIO_PARAMS`, and a populated `Provenance` on the outcome
+(`mission.py:334-338`). `scripts/execute.py` currently only prints it
+(`scripts/execute.py:25-38`). Note the cost: this adds a `bond-utilities` path
+dependency to `pyproject.toml` (goldeneye declares it at
+`../goldeneye/pyproject.toml:23,28`), which CARVER does not have today, and the
+dependency belongs in `scripts/`, never in the pure core.
+
+*Done looks like:* `uv run python scripts/execute.py` writes
+`output/data/carver_mission.json`, and a test asserts the outcome's
+`provenance.input_hash` equals the persisted record's
+`provenance.input_hash`.
+*Command:*
+```bash
+uv sync --all-extras && uv run python scripts/execute.py \
+  && uv run python -c "
+import json; r=json.load(open('output/data/carver_mission.json'))
+from tomorrow_never_dies.scenario import canonical_input_hash
+assert r['provenance']['input_hash'] == canonical_input_hash(); print('bound')"
+```
+
+**E2 — compute a detection range for Barker-13. [U0]**
+
+`scenario.py:329-334,359-360` builds the Barker-13 waveform and reports its
+processing gain and sidelobe floor, but `waveform_detection_range` is called
+only for the LFM chirp (`scenario.py:336`) and the equal-resolution
+unmodulated baseline (`scenario.py:344`). The results section therefore makes
+the reach-vs-sidelobes trade quantitative on one axis only: Barker buys ~9 dB
+lower sidelobes at a much smaller processing gain (13 vs 500), and the range
+cost of that choice is never stated.
+
+*Done looks like:* a `waveform_barker_range_km` token exists, the results
+section reports both ranges against both sidelobe floors, and
+`tests/test_scenario.py` asserts the Barker range is shorter than the LFM range
+(gain 13 < 500 ⇒ range ratio `(13/500)^0.25`).
+*Command:* `uv run pytest tests/test_scenario.py tests/test_manuscript_variables.py -v`.
+
+**E3 — per-edge coupling in the navigation cascade.**
+
+`simulate_navigation_cascade` applies one scalar `propagation_factor` to every
+edge (`src/tomorrow_never_dies/gps_denial.py:472,545`; the canonical value
+`0.5` is set at `scenario.py:149`). Per-edge weights would let the maritime
+dependency graph distinguish "depends on GPS for navigation" from "depends on
+GPS for scheduling" — which is the distinction the film's plot actually turns
+on, since the frigate is walked off course by a navigation dependency, not a
+scheduling one.
+
+*Done looks like:* the cascade accepts an optional per-edge weight mapping,
+falls back to the scalar when absent (so every current number is unchanged),
+and a test shows two graphs with identical topology but different edge weights
+producing different cascade fractions.
+*Command:* `uv run pytest tests/test_gps_denial.py -v` and confirm the
+canonical `cascade_fraction` token is byte-identical before and after.
+
+**E4 — optional: convert prose attributions to Pandoc `[@key]` citations. [U4]**
+
+The remediation pass deliberately did *not* do this because it could not
+verify locally that the render pipeline runs citeproc — shipping a literal
+`[@brown1992baseline]` into a PDF would have been a new defect. **That blocker
+is now resolvable:** the template renderer does invoke citeproc when a
+bibliography resolves —
+`../../../../infrastructure/rendering/_combined_exports.py:143-144` and
+`:223-224` append `--citeproc --bibliography=...` for the DOCX and HTML
+combined exports, with `resolve_bibliography` at `:98`. What is *not* verified
+is that this package's manuscript is rendered through that path at all (CARVER
+lives under `projects/working/bond/` and is not itself a discovered template
+project). Until that is confirmed end to end on a real PDF, the current
+convention stands and is coherent: `manuscript/SYNTAX.md:29-45` states plainly
+that no numbered section carries a `[@key]`, prose cites by author name, and
+`tests/test_references.py::test_bibliography_and_bibtex_agree` binds
+`references.bib` to `99_references.md` entry-for-entry on (surname, year).
+
+*Done looks like:* a rendered PDF/DOCX from this manuscript shows a formatted
+citation where a `[@key]` was inserted — verified by reading the artifact, not
+the log. If it shows the literal key, revert and close this item as declined.
+*Command:* render, then open the artifact; do not accept a clean exit code as
+evidence.
+
+## Known limitations (not bugs)
+
+Recorded so they are not re-litigated. Each is disclosed in
+`manuscript/07_scope_and_related_work.md` unless noted.
+
+* **The 25 dB-Hz carrier-lock threshold is one representative constant, not a
+  receiver link budget, and there is no acquisition-vs-tracking distinction.
+  [U2]** The audit forced this from an implied general result down to a stated
+  limitation. Honest scope: the canonical jamming case sits *inside* the
+  region where `uere_meters`' code-tracking term `47·10^(−C/N0/20)` is
+  extrapolated past validity, so the reported jammed position error is the
+  formula continued past where a receiver would have lost lock — not an
+  accuracy any receiver achieves. `figures.py:252-263` shades that region.
+  Modelling real lock dynamics is out of scope for a didactic package.
+* **The Walker constellation is a single-epoch snapshot. [U3]** Spherical
+  non-rotating Earth, no eccentricity, no J2, no per-satellite signal budget —
+  so the visible count (8) and the DOPs describe one instant, not a daily
+  distribution. Making this a true time series changes the package's scope,
+  not its correctness.
+* **Single-fault RAIM only.** Multiple simultaneous faults — the case a
+  deliberate spoofer actually creates — are outside the parity-space
+  assumption. Detection probability is satellite-specific
+  (noncentrality `P_ii (b/σ)²`) and the headline figure is the *worst*-placed
+  satellite; no claim is made that a bias of the probed size is reliably
+  caught, because at this geometry it is not.
+* **The belief model is two-state (susceptible, believing) by construction.**
+  No unaware compartment, no return path, so it cannot represent
+  reach-limited awareness or belief decay. The three-state description was a
+  documentation defect and was removed in phase 6; this is the real model.
+* **Nothing here is calibrated against measured data.** Conversion
+  probabilities, the HK confidence radius and media weight, RCS values, and
+  the jamming geometry are all chosen parameters. Every model is internally
+  consistent and tested against its own closed forms — that is the whole
+  claim.
+* **The pulse-compression improvement is meaningful only against the stated
+  equal-*resolution* baseline** (`scenario.py:316-328` documents why). Quoted
+  against an equal-*duration* pulse it would be zero; against the radar's
+  surveillance pulse it would smuggle a resolution change into a range claim.
+* **No `infrastructure.*` reuse in the domain core, by design.** The pure core
+  is stdlib + numpy only so it stays importable when the BOND protocol package
+  is absent — enforced over the list in `manuscript/layer_contract.yaml` by
+  `tests/test_package_surface.py:84-100`, not by convention.
+* **The `MissionProvider` surface and the gadget convention are frozen.**
+  `bond-cli`, the coordinator and the orchestrator consume them fleet-wide.
+  Depth goes inside the methods, never into the signature.
+
+## Verification
+
+Run all of these from this directory. `uv` cannot write its cache under a
+restrictive sandbox — a `Failed to initialize cache` error is an environment
+restriction, not a package failure; re-run with the sandbox disabled.
+
+```bash
+uv run pytest tests/ --cov=src --cov-fail-under=90
+#   expect: 187 passed, 0 failed, 0 skipped, TOTAL 98.83% (>= 90% gate)
+#   any change to src/ or tests/ changes these numbers — re-measure, then
+#   rewrite docs/_generated/COUNTS.md from the run, never by hand.
+
+uv run ruff check src/ scripts/           # expect: All checks passed!
+uv run ruff format --check src/ scripts/  # expect: 24 files already formatted
+uv run mypy src/                          # expect: no issues found in 11 source files
+
+uv run python scripts/run_mission.py      # expect: exit 0, five stages, provenance printed
+uv run python scripts/z_generate_manuscript_variables.py
+uv run pytest tests/test_scripts_smoke.py # expect: 8 passed
+
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock'
+#   expect: 2 hits, both in AGENTS.md (the file that states the rule) — see D1
+git status --short                        # expect: empty after commit
+```
+
+Per-module coverage, the statement/branch totals, and the measurement date live
+in [`docs/_generated/COUNTS.md`](docs/_generated/COUNTS.md). No other file in
+this package quotes a coverage figure; do not add one.
