@@ -2,14 +2,37 @@
 
 ## Scope
 
-CARVER is a didactic mission-software model, not an operational tool. The six
-domain analyses use idealised physics and synthetic but deterministic data:
-the radar model assumes free-space, clutter-free propagation; the
-disinformation and narrative models use stylised belief states rather than a
-cognitively grounded opinion-dynamics scheme; the GPS/RAIM models use a fixed
-constellation geometry and a single jamming source rather than a full
-receiver-in-the-loop simulation. These simplifications keep every
-computation transparent, deterministic, and verifiable.
+CARVER is a didactic mission-software model, not an operational tool. Every
+model here is internally consistent, deterministic, and tested against its own
+closed forms and known values — and none of them is calibrated against
+measured data. The specific limitation differs per concept, so it is worth
+naming each rather than gesturing at "simplifications":
+
+* **Disinformation propagation** — conversion probabilities are free
+  parameters, not fitted quantities. The model shows how a two-channel
+  campaign behaves for a given persuasion and spread rate; it says nothing
+  about what those rates are for any real population.
+* **Narrative control** — the bounded-confidence update is a mechanism, not a
+  measurement. Hegselmann–Krause has no empirical calibration here at all: the
+  confidence radius and media weight are chosen, and the reported capture and
+  bimodal split are properties of that choice.
+* **Stealth-vessel detection** — free-space, clutter-free propagation, a point
+  target with a single aspect-independent RCS, and a **nonfluctuating
+  (Swerling 0)** target throughout the canonical scenario. The Swerling-1
+  fluctuating case is implemented and tested but is not what the reported
+  detection ranges describe.
+* **Pulse compression** — the compression gain is treated as ideal coherent
+  integration, with no weighting losses, no Doppler mismatch, and no
+  range–Doppler coupling, all of which degrade a real LFM chirp.
+* **GPS denial** — one jamming source, a fixed constellation geometry, and a
+  dependency cascade with a single scalar coupling factor on every edge
+  rather than a real receiver-in-the-loop or per-link model.
+* **GNSS integrity** — single-fault RAIM only. Multiple simultaneous faults,
+  the case that most concerns a deliberate spoofer, are outside the
+  parity-space assumption used here.
+
+These restrictions are the price of keeping every computation transparent,
+deterministic, and verifiable end to end from a bare checkout.
 
 ## Related work
 

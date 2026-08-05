@@ -2,11 +2,13 @@
 
 ## Disinformation propagation
 
-The media campaign more than doubles the believing population relative to a
-no-media baseline, ending at a {{MEDIA_BELIEF_SHARE_PCT}}% belief share with an
-echo-chamber coefficient of {{MEDIA_ECHO_CHAMBER}} and an amplification of
-{{MEDIA_AMPLIFICATION}} believers per directly-exposed agent. @fig:disinformation
-shows the trajectory.
+Social spread alone converts {{MEDIA_BASELINE_SHARE_PCT}}% of the network. Adding
+Carver's broadcast multiplies that by {{MEDIA_CAMPAIGN_LIFT}}x, ending at a
+{{MEDIA_BELIEF_SHARE_PCT}}% belief share with an echo-chamber coefficient of
+{{MEDIA_ECHO_CHAMBER}} and an amplification of {{MEDIA_AMPLIFICATION}} believers per
+directly-exposed agent — the broadcast does not merely seed the belief, it
+recruits the social channel that then carries it. @fig:disinformation shows
+both trajectories.
 
 ![Believing fraction over time: media campaign vs no-media baseline](../output/figures/disinformation_propagation.png){#fig:disinformation}
 
@@ -28,8 +30,9 @@ majority. @fig:narrative shows the opinion trajectory under the campaign.
 
 A {{STEALTH_RCS_REDUCTION_DB}} dB RCS reduction (from a reference target to a
 stealth hull) cuts the detection range from {{STEALTH_REF_RANGE_KM}} km to
-{{STEALTH_RANGE_KM}} km — a range ratio of {{STEALTH_RANGE_RATIO}}, the fourth-root
-radar law. @fig:stealth shows the detection probability curves.
+{{STEALTH_RANGE_KM}} km — a range ratio of {{STEALTH_RANGE_RATIO}}, a
+{{STEALTH_RANGE_LOSS_PCT}}% loss, and exactly the fourth-root radar law.
+@fig:stealth shows the detection probability curves.
 
 ![Detection probability vs range: reference target and stealth hull](../output/figures/stealth_detection.png){#fig:stealth}
 
@@ -42,8 +45,11 @@ Treating that gain as coherent integration restores the stealth hull's
 detection range from {{STEALTH_RANGE_KM}} km to {{WAVEFORM_RANGE_KM}} km — a
 {{WAVEFORM_IMPROVEMENT_PCT}}% improvement, exactly the fourth-root of the gain.
 @fig:waveform shows the compressed-pulse envelopes of the LFM chirp and the
-Barker-13 code (whose -22.3 dB sidelobe floor is the best uniform value for a
-single code).
+Barker-13 code. The Barker code buys far less gain ({{WAVEFORM_BARKER_GAIN}}x
+against the chirp's {{WAVEFORM_GAIN_DB}} dB) but pays for it with a much cleaner
+range response: a measured {{WAVEFORM_BARKER_PSLR_DB}} dB sidelobe floor against
+the chirp's {{WAVEFORM_PSLR_DB}} dB. That is the design trade — reach against the
+risk that a sidelobe of a bright return masks a dim one beside it.
 
 ![Pulse compression: matched-filter range response for LFM and Barker-13](../output/figures/waveform_pulse_compression.png){#fig:waveform}
 

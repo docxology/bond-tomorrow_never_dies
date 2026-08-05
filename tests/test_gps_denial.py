@@ -199,3 +199,38 @@ def test_cascade_errors() -> None:
         simulate_navigation_cascade(dependencies, weights, propagation_factor=-0.1)
     with pytest.raises(ValueError):
         simulate_navigation_cascade(dependencies, weights, max_rounds=0)
+
+
+def test_cascade_rejects_unknown_dependent() -> None:
+    """A dependent with no weight fails at the boundary, not with a KeyError."""
+    dependencies, weights = maritime_dependency_network()
+    bad_deps = dict(dependencies)
+    bad_deps["hms_devonshire"] = ("hms_devonshire_tender",)
+    with pytest.raises(ValueError, match="unknown node"):
+        simulate_navigation_cascade(bad_deps, weights)
+
+
+def test_cascade_max_rounds_truncates_before_fixpoint() -> None:
+    """``max_rounds`` bounds the cascade even when failures are still spreading."""
+    dependencies, weights = maritime_dependency_network()
+    full = simulate_navigation_cascade(dependencies, weights, jamming_strength=0.85)
+    clipped = simulate_navigation_cascade(
+        dependencies, weights, jamming_strength=0.85, max_rounds=1
+    )
+    assert clipped.rounds == 1
+    assert len(clipped.failed) < len(full.failed)
+
+
+def test_satellite_rejects_non_numeric_angles() -> None:
+    with pytest.raises(ValueError, match="azimuth_deg must be a number"):
+        Satellite(name="PRN01", azimuth_deg=True, elevation_deg=30.0)
+    with pytest.raises(ValueError, match="elevation_deg must be a number"):
+        Satellite(name="PRN01", azimuth_deg=10.0, elevation_deg="high")  # type: ignore[arg-type]
+
+
+def test_visible_rejects_non_numeric_mask() -> None:
+    constellation = walker_constellation(8, 2, seed=7)
+    with pytest.raises(ValueError, match="mask_angle_deg must be a number"):
+        constellation.visible(mask_angle_deg=True)
+    with pytest.raises(ValueError, match=r"\[0, 90\]"):
+        constellation.visible(mask_angle_deg=120.0)

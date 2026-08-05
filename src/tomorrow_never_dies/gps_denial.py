@@ -357,6 +357,8 @@ def simulate_navigation_cascade(
         number of cascade rounds, the failed fraction, and failures per round.
     """
     nodes = tuple(gps_weights)
+    if not nodes:
+        raise ValueError("gps_weights must not be empty")
     for node in nodes:
         if not isinstance(gps_weights[node], (int, float)) or isinstance(
             gps_weights[node], bool
@@ -366,8 +368,15 @@ def simulate_navigation_cascade(
             raise ValueError(f"gps_weights[{node!r}] must be in [0, 1]")
         if node not in dependencies:
             raise ValueError(f"dependencies has no entry for node {node!r}")
-    if not nodes:
-        raise ValueError("gps_weights must not be empty")
+    # Every dependent must be a weighted node, or stress propagation would
+    # raise KeyError mid-cascade instead of failing at the boundary.
+    for source, dependents in dependencies.items():
+        for dependent in dependents:
+            if dependent not in gps_weights:
+                raise ValueError(
+                    f"dependencies[{source!r}] names unknown node {dependent!r} "
+                    "(every dependent must have a gps_weights entry)"
+                )
     for label, value in (
         ("jamming_strength", jamming_strength),
         ("propagation_factor", propagation_factor),

@@ -124,3 +124,50 @@ def test_waveform_detection_range() -> None:
     # More processing gain -> monotonically longer detection range.
     barker_range = waveform_detection_range(rcs, BARKER, config=cfg)
     assert lfm_range > barker_range > unmod_range
+
+
+def test_generate_waveform_rejects_sub_two_sample_pulse() -> None:
+    """A pulse shorter than two samples cannot be compressed at all."""
+    waveform = Waveform(
+        kind="lfm",
+        pulse_width_s=1.0e-7,
+        bandwidth_hz=1.0e6,
+        sample_rate_hz=2.0e6,
+    )
+    with pytest.raises(ValueError, match=">= 2 samples"):
+        generate_waveform(waveform)
+
+
+def test_barker13_sidelobe_floor_matches_code_length() -> None:
+    """Barker-13's measured floor sits at the theoretical 1/13 (-22.3 dB)."""
+    barker = Waveform(
+        kind="barker13",
+        pulse_width_s=50.0e-6,
+        bandwidth_hz=10.0e6,
+        sample_rate_hz=40.0e6,
+    )
+    theoretical = 20.0 * np.log10(1.0 / len(BARKER13_CODE))
+    measured = peak_sidelobe_ratio(barker)
+    assert processing_gain(barker) == float(len(BARKER13_CODE))
+    # Chip quantisation at a finite sample rate keeps the measured floor
+    # slightly above the ideal value, never below it.
+    assert theoretical <= measured <= theoretical + 0.5
+    # And it is a genuinely lower floor than the unweighted LFM sinc.
+    lfm = Waveform(
+        kind="lfm",
+        pulse_width_s=50.0e-6,
+        bandwidth_hz=10.0e6,
+        sample_rate_hz=40.0e6,
+    )
+    assert measured < peak_sidelobe_ratio(lfm)
+
+
+def test_lfm_with_mainlobe_covering_every_lag_reports_no_sidelobes() -> None:
+    """When the mainlobe spans the whole response there is nothing left to scan."""
+    waveform = Waveform(
+        kind="lfm",
+        pulse_width_s=4.0e-6,
+        bandwidth_hz=1.0e5,
+        sample_rate_hz=1.0e6,
+    )
+    assert peak_sidelobe_ratio(waveform) == float("-inf")

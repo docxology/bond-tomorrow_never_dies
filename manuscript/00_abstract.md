@@ -1,11 +1,13 @@
 # Abstract
 
-**{{CARVER_IDENTITY}}: CARVER — Special-Agent Mission Software** (*{{CARVER_SUBTITLE}}*).
+**{{CARVER_IDENTITY}}** (*{{CARVER_SUBTITLE}}*).
 
 CARVER is a deterministic mission-software package that turns the media-warfare
-playbook of Elliot Carver into six quantitative, reproducible analyses. A
+playbook of Elliot Carver into {{CARVER_OBJECTIVES}} quantitative, reproducible
+analyses, paired as attack and counter across media, radar, and navigation. A
 disinformation model simulates how a broadcast campaign converts a social
-network to a manufactured belief — {{MEDIA_BELIEF_SHARE_PCT}}% by campaign end — and
+network to a manufactured belief — {{MEDIA_BELIEF_SHARE_PCT}}% by campaign end,
+{{MEDIA_CAMPAIGN_LIFT}}x the no-media baseline — and
 a bounded-confidence narrative model shows how a *selective* broadcast pulls
 the audience mean {{NARRATIVE_MEDIA_CAPTURE}}% toward the manufactured line while
 fragmenting it into echo chambers (bimodal split {{NARRATIVE_BIMODAL_SPLIT}}; the

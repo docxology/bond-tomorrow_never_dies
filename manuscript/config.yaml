@@ -6,7 +6,7 @@
 
 paper:
   title: "Tomorrow Never Dies: CARVER — Special-Agent Mission Software"
-  subtitle: "Disinformation Propagation, Stealth-Vessel Detection, and GPS-Denial Impact Analysis"
+  subtitle: "Six Paired Models of Media, Radar, and Navigation Warfare: Disinformation and Narrative Control, Stealth Detection and Pulse Compression, GPS Denial and RAIM Integrity"
   codename: "CARVER"
   version: "0.1.0"
   date: "2026-08-04"
@@ -21,10 +21,16 @@ authors:
 keywords:
   - "disinformation propagation"
   - "media manipulation"
+  - "bounded-confidence opinion dynamics"
+  - "echo chambers"
   - "radar cross-section"
   - "stealth detection"
+  - "pulse compression"
+  - "matched filtering"
   - "GPS denial"
   - "navigation failure cascade"
+  - "RAIM"
+  - "GNSS integrity monitoring"
   - "deterministic simulation"
   - "reproducible research"
 

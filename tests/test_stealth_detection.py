@@ -172,3 +172,31 @@ def test_radar_config_validation() -> None:
 
 def test_fluctuation_models() -> None:
     assert set(FLUCTUATION_MODELS) == {"swerling0", "swerling1"}
+
+
+def test_boundary_validation_rejects_bool_and_non_numeric() -> None:
+    """Booleans are ints in Python; the radar boundary must still reject them."""
+    with pytest.raises(ValueError, match="frequency_hz must be a positive number"):
+        wavelength(True)
+    with pytest.raises(ValueError, match="range_m must be a positive number"):
+        snr_at_range(True, 1.0)
+    with pytest.raises(ValueError, match="rcs_sqm must be a positive number"):
+        snr_at_range(1000.0, True)
+    with pytest.raises(ValueError, match="snr_linear must be a positive number"):
+        snr_db(True)
+
+
+def test_marcum_q_returns_zero_when_threshold_dwarfs_the_signal() -> None:
+    """A threshold far above a strong Rician peak leaves no integrable mass."""
+    assert marcum_q1(60.0, 200.0) == 0.0
+    # Sanity: the same large ``a`` with a threshold at the peak is near 0.5.
+    assert marcum_q1(60.0, 60.0) == pytest.approx(0.5, abs=0.05)
+
+
+def test_detection_range_saturates_at_the_search_bound() -> None:
+    """A large target still detectable at ``max_range_m`` returns the bound."""
+    config = RadarConfig(peak_power_w=1.0e6, gain_db=40.0, pulses=4)
+    bound = 1.0e4
+    assert detection_range(
+        1000.0, p_fa=1e-6, p_d_target=0.9, config=config, max_range_m=bound
+    ) == pytest.approx(bound)

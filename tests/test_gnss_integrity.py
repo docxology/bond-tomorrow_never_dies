@@ -180,3 +180,33 @@ def test_integrity_availability() -> None:
     assert blocked is False
     with pytest.raises(ValueError):
         integrity_availability(geometry, alert_limit_m=0.0)
+
+
+def test_normal_cdf_rejects_non_numeric() -> None:
+    with pytest.raises(ValueError, match="z must be a number"):
+        normal_cdf(True)
+    with pytest.raises(ValueError, match="z must be a number"):
+        normal_cdf("0.0")  # type: ignore[arg-type]
+
+
+def test_noncentral_chi2_rejects_bad_dof_and_noncentrality() -> None:
+    with pytest.raises(ValueError, match="dof must be an integer >= 1"):
+        noncentral_chi2_cdf(1.0, 0, 1.0)
+    with pytest.raises(ValueError, match="noncentrality must be a non-negative number"):
+        noncentral_chi2_cdf(1.0, 4, -1.0)
+
+
+def test_detection_probability_rejects_bad_dof() -> None:
+    with pytest.raises(ValueError, match="dof must be an integer >= 1"):
+        detection_probability(20.0, dof=0, p_fa=1e-5)
+
+
+def test_detection_probability_is_monotone_in_bias() -> None:
+    """A larger spoofing bias is never harder to catch."""
+    probabilities = [
+        detection_probability(bias, dof=8, p_fa=1e-5, sigma=3.0)
+        for bias in (0.0, 5.0, 10.0, 20.0, 40.0)
+    ]
+    assert probabilities == sorted(probabilities)
+    assert probabilities[0] < 1e-3  # no bias: essentially only false alarms
+    assert probabilities[-1] > 0.99

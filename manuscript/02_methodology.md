@@ -7,7 +7,11 @@ algorithmic grounding.
 
 Agents occupy one of three belief states — unaware, susceptible, or believing —
 on a Watts–Strogatz small-world network of {{MEDIA_NODES}} nodes (seed
-{{CARVER_SEED}}). `simulate_disinformation`
+{{CARVER_SEED}}). The broadcast footprint — the {{MEDIA_REACH_PCT}}% of nodes the
+media channel reaches — is selected by a deterministic index mix rather than
+an RNG draw, so it is a pure function of network size, reach, and seed, and
+widening the reach only ever *adds* nodes to the exposed set.
+`simulate_disinformation`
 (`src/tomorrow_never_dies/media_manipulation.py`) converts susceptible agents
 through a media channel (a deterministic exposed subset converts with a
 persuasion probability) and a social channel (believing agents convert
@@ -46,8 +50,13 @@ pulse concentrates its energy through pulse compression. Three waveforms are
 implemented — unmodulated (gain 1), the LFM chirp (time-bandwidth product
 {{WAVEFORM_BANDWIDTH_MHZ}} MHz-bandwidth, processing gain {{WAVEFORM_GAIN_DB}} dB,
 range resolution {{WAVEFORM_RES_M}} m, and the sinc sidelobe floor of
-{{WAVEFORM_PSLR_DB}} dB), and the Barker-13 phase code (uniform -22.3 dB
-sidelobes). The matched filter is an exact convolution; the resulting
+{{WAVEFORM_PSLR_DB}} dB), and the Barker-13 phase code (gain
+{{WAVEFORM_BARKER_GAIN}}x, measured sidelobe floor {{WAVEFORM_BARKER_PSLR_DB}} dB —
+the code's autocorrelation is 13 at zero lag and unity elsewhere, the best
+uniform sidelobe floor known for a single binary code, with the measured
+value sitting just above the ideal ``20 log10(1/13)`` because a finite sample
+rate quantizes the chip boundaries). The matched filter is an exact
+convolution; the resulting
 compression gain is treated as coherent integration, so the detection range
 of a low-RCS target follows the fourth-root law
 ``R ∝ gain^(1/4)`` (`waveform_detection_range`).

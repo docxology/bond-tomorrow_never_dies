@@ -6,13 +6,19 @@
 
 surfaces:
   pure_domain:
-    description: "Filter-net media, stealth, gps denial, scenario math."
+    description: >-
+      The six concept models (media manipulation, narrative control, stealth
+      detection, radar waveform, GPS denial, GNSS integrity) plus the
+      canonical scenario that runs them.
     modules:
       - src/tomorrow_never_dies/media_manipulation.py
+      - src/tomorrow_never_dies/narrative_control.py
       - src/tomorrow_never_dies/stealth_detection.py
+      - src/tomorrow_never_dies/radar_waveform.py
       - src/tomorrow_never_dies/gps_denial.py
+      - src/tomorrow_never_dies/gnss_integrity.py
       - src/tomorrow_never_dies/scenario.py
-    rule: "stdlib + numpy only; must NOT import bond_api or matplotlib."
+    rule: "stdlib + numpy + sibling core modules only; must NOT import bond_api, infrastructure.*, or matplotlib."
 
   protocol_adapter:
     description: "The single bridge between the domain core and bond_api."
@@ -40,5 +46,9 @@ surfaces:
     rule: "Import src modules and forward; never implement math in-place."
 
 enforced_by:
-  description: "Boundary audit via the fixture-free gate in the package preamble."
-  rule: "No infrastructure.* and no bond_api imports inside the pure_domain surface."
+  description: >-
+    tests/test_package_surface.py — derives the pure-domain module list from
+    CONCEPTS (src/tomorrow_never_dies/__init__.py), greps each file for banned
+    imports, and asserts this file's pure_domain list matches. A module added
+    without being declared here fails the suite.
+  rule: "No infrastructure.*, bond_api, or matplotlib imports inside the pure_domain surface."

@@ -8,15 +8,17 @@ from __future__ import annotations
 
 from bond_api.discovery import discover, load_provider
 from bond_api.protocol import (
-    MissionProvider as ProtocolProvider,
-)
-from bond_api.protocol import (
+    MissionOutcome,
     ReconRequest,
     run_mission,
+)
+from bond_api.protocol import (
+    MissionProvider as ProtocolProvider,
 )
 from bond_api.registry import GadgetRegistry
 from bond_api.serialization import from_dict, to_dict
 
+from tomorrow_never_dies import CONCEPTS
 from tomorrow_never_dies.mission import (
     FILM,
     GADGET_REGISTRY,
@@ -52,7 +54,8 @@ def test_brief() -> None:
     brief = MissionProvider().brief()
     assert brief.film == FILM
     assert brief.codename == "CARVER"
-    assert len(brief.objectives) == 3
+    # One objective per pure-domain concept module.
+    assert len(brief.objectives) == len(CONCEPTS)
     assert len(brief.assets) == 3
     assert any(constraint.kind == "determinism" for constraint in brief.constraints)
 
@@ -116,6 +119,37 @@ def test_debrief() -> None:
     assert len(debrief.lessons) >= 3
     assert debrief.outcome is outcome
     assert all(isinstance(lesson, str) and lesson for lesson in debrief.lessons)
+
+
+def test_debrief_quantities_are_derived_not_hardcoded() -> None:
+    """Every number the debrief quotes must come from the executed outcome.
+
+    Guards against a lesson string drifting from the scenario: the RCS
+    reduction and range ratio are re-derived here from the outcome's own
+    ``per_step`` block and must appear verbatim in the lesson text.
+    """
+    provider = MissionProvider()
+    outcome = provider.execute(provider.plan(provider.brief()))
+    stealth = outcome.results["per_step"]["stealth"]
+    lessons = provider.debrief(outcome).lessons
+    quantitative = [text for text in lessons if "RCS" in text and "dB" in text]
+    assert len(quantitative) == 1
+    assert f"{stealth['rcs_reduction_db']:.0f} dB" in quantitative[0]
+    assert f"{stealth['range_ratio']:.3f}" in quantitative[0]
+
+
+def test_debrief_without_per_step_omits_quantities() -> None:
+    """A results payload with no ``per_step`` yields only the fixed lessons."""
+    provider = MissionProvider()
+    outcome = provider.execute(provider.plan(provider.brief()))
+    bare = MissionOutcome(
+        success=outcome.success,
+        results={"steps_completed": 0},
+        provenance=outcome.provenance,
+    )
+    lessons = provider.debrief(bare).lessons
+    assert len(lessons) == 6
+    assert not any("belief share" in lesson for lesson in lessons)
 
 
 def test_run_mission_full_flow() -> None:

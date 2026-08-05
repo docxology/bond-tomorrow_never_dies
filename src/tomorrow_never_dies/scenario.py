@@ -56,11 +56,24 @@ from tomorrow_never_dies.stealth_detection import (
 )
 
 __all__ = [
+    "SCENARIO_BLOCKS",
+    "SCENARIO_PARAMS",
     "SCENARIO_SEED",
     "canonical_input_hash",
     "run_carver_scenario",
     "scenario_metrics",
 ]
+
+#: The six result blocks :func:`run_carver_scenario` always returns, in
+#: manuscript order. Pinned by ``tests/test_scenario.py``.
+SCENARIO_BLOCKS = (
+    "media",
+    "narrative",
+    "stealth",
+    "waveform",
+    "gps",
+    "integrity",
+)
 
 #: The fixed seed every CARVER scenario uses (determinism guarantee).
 SCENARIO_SEED = 7
@@ -163,8 +176,10 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
     """Run the full CARVER scenario and return the computed results.
 
     Returns:
-        A nested dict with ``media``, ``stealth``, and ``gps`` result blocks
-        plus the ``input_hash`` of the scenario parameters.
+        A nested dict with the six result blocks named by
+        :data:`SCENARIO_BLOCKS` — ``media``, ``narrative``, ``stealth``,
+        ``waveform``, ``gps``, ``integrity`` — plus ``seed``, ``version``,
+        and the ``input_hash`` of the scenario parameters.
     """
     if not isinstance(seed, int) or seed < 0:
         raise ValueError("seed must be a non-negative integer")
@@ -189,10 +204,29 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         spread_rate=float(media["spread_rate"]),
         campaign_delay=int(media["campaign_delay"]),
     )
+    # The counterfactual: identical network, identical seed, no broadcast.
+    # Every "the campaign did X" claim is measured against this, never eyeballed.
+    baseline_result = simulate_disinformation(
+        network,
+        media_reach=0.0,
+        persuasion=float(media["persuasion"]),
+        seed=seed,
+        steps=int(media["steps"]),
+        initial_believers=int(media["initial_believers"]),
+        spread_rate=float(media["spread_rate"]),
+        campaign_delay=int(media["campaign_delay"]),
+    )
+    baseline_share = baseline_result.belief_share[-1]
     media_block = {
         "nodes": len(network),
         "final_believers": media_result.final_believers,
         "belief_share": media_result.belief_share[-1],
+        "baseline_belief_share": baseline_share,
+        "campaign_lift": (
+            media_result.belief_share[-1] / baseline_share
+            if baseline_share > 0.0
+            else float("inf")
+        ),
         "echo_chamber": media_result.echo_chamber,
         "amplification": media_result.amplification,
         "directly_exposed": media_result.directly_exposed,
@@ -275,6 +309,12 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         bandwidth_hz=float(wfm["bandwidth_hz"]),
         sample_rate_hz=1.0e6,
     )
+    barker = Waveform(
+        kind="barker13",
+        pulse_width_s=float(wfm["pulse_width_s"]),
+        bandwidth_hz=float(wfm["bandwidth_hz"]),
+        sample_rate_hz=float(wfm["sample_rate_hz"]),
+    )
     wfm_gain = processing_gain(chirp)
     lfm_range = waveform_detection_range(
         float(stealth["stealth_rcs_sqm"]),
@@ -299,6 +339,8 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         "processing_gain": wfm_gain,
         "gain_db": float(10.0 * np.log10(wfm_gain)) if wfm_gain > 1.0 else 0.0,
         "pslr_db": peak_sidelobe_ratio(chirp),
+        "barker_gain": processing_gain(barker),
+        "barker_pslr_db": peak_sidelobe_ratio(barker),
         "detection_range_m": lfm_range,
         "unmodulated_range_m": unmodulated_range,
         "improvement_pct": (lfm_range / unmodulated_range - 1.0) * 100.0,
@@ -401,6 +443,8 @@ def scenario_metrics(scenario: dict[str, Any] | None = None) -> dict[str, float]
     integrity = data["integrity"]
     return {
         "media_belief_share": float(media["belief_share"]),
+        "media_baseline_share": float(media["baseline_belief_share"]),
+        "media_campaign_lift": float(media["campaign_lift"]),
         "media_echo_chamber": float(media["echo_chamber"]),
         "media_amplification": float(media["amplification"]),
         "narrative_consensus": float(narrative["consensus"]),
@@ -412,10 +456,13 @@ def scenario_metrics(scenario: dict[str, Any] | None = None) -> dict[str, float]
         "stealth_range_km": float(stealth["stealth_range_m"]) / 1000.0,
         "stealth_rcs_reduction_db": float(stealth["rcs_reduction_db"]),
         "stealth_range_ratio": float(stealth["range_ratio"]),
+        "stealth_range_loss_pct": (1.0 - float(stealth["range_ratio"])) * 100.0,
         "waveform_bandwidth_mhz": float(waveform["bandwidth_mhz"]),
         "waveform_resolution_m": float(waveform["range_resolution_m"]),
         "waveform_gain_db": float(waveform["gain_db"]),
         "waveform_pslr_db": float(waveform["pslr_db"]),
+        "waveform_barker_gain": float(waveform["barker_gain"]),
+        "waveform_barker_pslr_db": float(waveform["barker_pslr_db"]),
         "waveform_range_km": float(waveform["detection_range_m"]) / 1000.0,
         "waveform_improvement_pct": float(waveform["improvement_pct"]),
         "gps_pdop": float(gps["pdop"]),

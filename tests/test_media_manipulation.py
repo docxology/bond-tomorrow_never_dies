@@ -13,6 +13,7 @@ from tomorrow_never_dies.media_manipulation import (
     BELIEVING,
     SUSCEPTIBLE,
     UNAWARE,
+    MediaCampaign,
     amplification_factor,
     build_network,
     echo_chamber_coefficient,
@@ -210,3 +211,43 @@ def test_simulate_errors() -> None:
         simulate_disinformation(net, initial_seed_nodes=(30,))
     with pytest.raises(ValueError):
         simulate_disinformation((), seed=1)
+
+
+def test_media_campaign_validates_its_fields() -> None:
+    """The campaign dataclass validates at construction, not at first use."""
+    campaign = MediaCampaign(reach=0.3, persuasion=0.12)
+    assert campaign.reach == 0.3
+    assert campaign.persuasion == 0.12
+    with pytest.raises(ValueError, match=r"MediaCampaign.reach must be in"):
+        MediaCampaign(reach=1.5, persuasion=0.12)
+    with pytest.raises(ValueError, match=r"MediaCampaign.persuasion must be a number"):
+        MediaCampaign(reach=0.3, persuasion=True)
+
+
+def test_echo_chamber_skips_isolated_believers() -> None:
+    """A believer with no neighbours has no chamber and is not counted."""
+    network = ((1,), (0,), ())  # node 2 is isolated
+    states = np.asarray([BELIEVING, BELIEVING, BELIEVING], dtype=np.int64)
+    # Nodes 0 and 1 each have a fully believing neighbourhood; node 2 has none.
+    assert echo_chamber_coefficient(network, states) == pytest.approx(2.0 / 3.0)
+
+
+def test_broadcast_footprint_is_nested_and_seed_stable() -> None:
+    """Raising reach only ever adds nodes to the exposed set.
+
+    The footprint is index-mixed, not RNG-drawn, so it is a pure function of
+    ``(n_nodes, reach, seed)``: a wider broadcast is a superset of a narrower
+    one, and the count is exactly ``round(reach * n)``.
+    """
+    from tomorrow_never_dies.media_manipulation import _media_targets
+
+    small = set(int(v) for v in _media_targets(120, 0.2, 7))
+    large = set(int(v) for v in _media_targets(120, 0.6, 7))
+    assert len(small) == 24
+    assert len(large) == 72
+    assert small < large
+    assert _media_targets(120, 0.2, 7).tolist() == _media_targets(120, 0.2, 7).tolist()
+    # A different seed selects a different audience of the same size.
+    assert set(int(v) for v in _media_targets(120, 0.2, 8)) != small
+    # Zero reach reaches nobody.
+    assert _media_targets(120, 0.0, 7).size == 0

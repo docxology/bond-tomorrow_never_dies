@@ -52,8 +52,16 @@ SUSCEPTIBLE = 1
 #: Agent state: believes the manufactured message and spreads it socially.
 BELIEVING = 2
 
-#: Node-index mixing constant for the deterministic media-target sweep.
+#: Node-index mixing constant (Knuth's 32-bit golden-ratio multiplier) for the
+#: deterministic media-target sweep.
 _TARGET_MIX = 2654435761
+#: Seed mixing constant, coprime with :data:`_TARGET_MIX`, so the seed
+#: reorders the audience instead of merely offsetting every score by a
+#: constant (which would leave the sort order — and therefore the selected
+#: audience — effectively seed-independent).
+_SEED_MIX = 40503
+#: Modulus of the target-score space (32-bit).
+_SCORE_MODULUS = 2**32
 
 
 @dataclass(frozen=True)
@@ -205,16 +213,39 @@ def state_counts(states: np.ndarray) -> tuple[int, int, int]:
     return int(counts[UNAWARE]), int(counts[SUSCEPTIBLE]), int(counts[BELIEVING])
 
 
-def _media_targets(
-    n_nodes: int, reach: float, seed: int, rng: np.random.Generator
-) -> np.ndarray:
-    """Deterministic exposed subset: ``round(reach * n_nodes)`` nodes."""
+def _target_score(index: int, seed: int) -> int:
+    """Deterministic 32-bit broadcast-priority score for one node.
+
+    The seed is folded in multiplicatively and XOR-mixed, not added: an
+    additive seed shifts every score by the same constant and therefore
+    leaves the sort order (and the selected audience) unchanged, which would
+    make ``seed`` a no-op for audience selection.
+    """
+    mixed = ((index + 1) * _TARGET_MIX) ^ ((seed + 1) * _SEED_MIX)
+    mixed = (mixed ^ (mixed >> 15)) * _TARGET_MIX
+    return mixed % _SCORE_MODULUS
+
+
+def _media_targets(n_nodes: int, reach: float, seed: int) -> np.ndarray:
+    """Deterministic exposed subset: ``round(reach * n_nodes)`` nodes.
+
+    Index-mixed rather than RNG-drawn on purpose. The footprint is a pure
+    function of ``(n_nodes, reach, seed)``, independent of the simulation's
+    draw history, so it is stable no matter where in the campaign it is
+    computed — and it *nests*: raising ``reach`` only ever adds nodes to the
+    exposed set, it never reshuffles the ones already in it. Carver's
+    transmitter coverage grows; it does not move.
+
+    Note this concerns *selection* only. Each exposed, still-susceptible node
+    consumes one persuasion draw per campaign round, so the belief trajectory
+    does still depend on ``reach`` through those rolls.
+    """
     count = round(reach * n_nodes)
     if count <= 0:
         return np.zeros(0, dtype=np.int64)
     # Mix node indices so the exposed set is spread across the ring.
     scores = np.asarray(
-        [((i + 1) * _TARGET_MIX + seed) % (2**32) for i in range(n_nodes)],
+        [_target_score(i, seed) for i in range(n_nodes)],
         dtype=np.int64,
     )
     order = np.argsort(scores, kind="stable")
@@ -237,7 +268,9 @@ def simulate_disinformation(
 
     Args:
         network: Adjacency tuple from :func:`build_network`.
-        media_reach: Fraction of nodes exposed per campaign round.
+        media_reach: Fraction of nodes in the broadcast footprint. The
+            exposed set is fixed for the whole campaign; each round every
+            still-susceptible member of it re-rolls ``persuasion``.
         persuasion: Per-exposure conversion probability (media channel).
         seed: Fixed RNG seed.
         steps: Number of simulation rounds (>= 1).
@@ -282,7 +315,7 @@ def simulate_disinformation(
     for node in seed_nodes:
         states[node] = BELIEVING
 
-    targets = _media_targets(n_nodes, media_reach, seed, rng)
+    targets = _media_targets(n_nodes, media_reach, seed)
     directly_exposed = int(targets.size)
 
     share: list[float] = [float(np.count_nonzero(states == BELIEVING)) / n_nodes]

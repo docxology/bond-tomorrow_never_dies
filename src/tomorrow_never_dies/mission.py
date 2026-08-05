@@ -88,20 +88,29 @@ GADGET_REGISTRY = register_gadgets(GadgetRegistry())
 
 
 class MissionProvider:
-    """Deterministic CARVER mission provider over the three domain concepts."""
+    """Deterministic CARVER mission provider over the six domain concepts.
+
+    Public shape is frozen (``film`` plus ``brief``/``recon``/``plan``/
+    ``execute``/``debrief``): the coordinator and ``bond-cli`` consume it
+    across the fleet. Depth is added inside the methods, never to the surface.
+    """
 
     film = FILM
 
     def brief(self) -> MissionBrief:
-        """Declare the CARVER mission: three objectives, three concept assets."""
+        """Declare the CARVER mission: six objectives, three model assets."""
         radar = SCENARIO_PARAMS["stealth"]["radar"]
         return MissionBrief(
             film=self.film,
             codename=CODENAME,
             objectives=(
                 "model Carver-style disinformation propagation on a social network",
+                "measure narrative capture and echo-chamber fragmentation under "
+                "a bounded-confidence broadcast",
                 "quantify low-RCS stealth-vessel detection limits",
+                "recover detection range against a stealth hull via pulse compression",
                 "analyze GPS-denial impact and navigation failure cascades",
+                "bound spoofed-measurement error with RAIM integrity monitoring",
             ),
             assets=(
                 Asset(
@@ -178,7 +187,7 @@ class MissionProvider:
         )
 
     def plan(self, brief: MissionBrief) -> MissionPlan:
-        """Plan the seven steps: two per concept family plus synthesis."""
+        """Plan seven steps: one per domain concept plus a synthesis step."""
         return MissionPlan(
             steps=(
                 Step(
@@ -331,13 +340,18 @@ class MissionProvider:
         )
 
     def debrief(self, outcome: MissionOutcome) -> Debrief:
-        """Summarize the mission and record CARVER's standing lessons."""
+        """Summarize the mission and record CARVER's standing lessons.
+
+        The qualitative lessons are fixed; every *quantity* in the debrief is
+        read back out of the executed outcome, never hand-authored here, so a
+        change to ``SCENARIO_PARAMS`` can never leave a stale number behind.
+        """
         results = outcome.results
         per_step = results.get("per_step", {})
         lessons = [
             "media control converts exposure into belief; social spread amplifies the campaign",
             "bounded confidence lets a selective broadcast split the audience into echo chambers",
-            "a 20 dB RCS reduction cuts detection range by ~two-thirds (fourth-root law)",
+            "cutting radar cross-section buys range by the fourth-root law",
             "pulse compression restores detection range against a stealth hull",
             "GPS denial cascades through navigation dependencies: one jammed receiver can fail a fleet",
             "RAIM bounds the position error a corrupt navigation measurement can hide",
@@ -346,6 +360,14 @@ class MissionProvider:
             media_b = per_step.get("media", {})
             gps_b = per_step.get("gps", {})
             wave_b = per_step.get("waveform", {})
+            stealth_b = per_step.get("stealth", {})
+            if stealth_b:
+                ratio = float(stealth_b.get("range_ratio", 1.0))
+                lessons.append(
+                    f"a {float(stealth_b.get('rcs_reduction_db', 0.0)):.0f} dB RCS "
+                    f"reduction cuts detection range to {ratio:.3f} of the reference "
+                    f"({100.0 * (1.0 - ratio):.0f}% loss)"
+                )
             lessons.append(
                 f"belief share {media_b.get('belief_share', 0.0):.3f}; "
                 f"compression gain {wave_b.get('gain_db', 0.0):.1f} dB; "

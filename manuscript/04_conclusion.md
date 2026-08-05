@@ -2,10 +2,12 @@
 
 CARVER demonstrates that the media-warfare instruments of *Tomorrow Never
 Dies* admit quantitative, reproducible models across six coupled analyses.
-Disinformation spreads through media exposure amplified by social diffusion;
+Disinformation spreads through media exposure amplified by social diffusion —
+the broadcast multiplies the no-media baseline by {{MEDIA_CAMPAIGN_LIFT}}x — and
 bounded confidence shows how a selective broadcast both moves the audience
-mean and fragments it into echo chambers. A stealth hull trades radar
-cross-section for a two-thirds loss of detection range, but pulse compression
+mean and fragments it into echo chambers. A stealth hull trades
+{{STEALTH_RCS_REDUCTION_DB}} dB of radar cross-section for a
+{{STEALTH_RANGE_LOSS_PCT}}% loss of detection range, but pulse compression
 restores it by the exact fourth-root of the processing gain. And navigation
 warfare is two-sided: GPS denial degrades accuracy and cascades failure
 through the dependency web, while RAIM bounds the position error a corrupted

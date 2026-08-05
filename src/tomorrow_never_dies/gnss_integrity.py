@@ -11,8 +11,9 @@ error. This module implements the baseline RAIM algorithm in full:
   CDF/quantile needed for protection-level margins. Scipy-free and
   deterministic.
 * **Parity space** — the orthogonal projection onto the (n-4)-dimensional
-  parity space built from the QR decomposition of the geometry matrix; a
-  fault drives the parity residual away from zero.
+  parity space, built from the full SVD of the geometry matrix (its trailing
+  left singular vectors span the left null space); a fault drives the parity
+  residual away from zero.
 * **Detection** — the RAIM test statistic, a threshold from the chi-square
   distribution at a target false-alarm rate, and the probability of detecting
   a measurement bias of a given size (noncentral chi-square, Poisson-series).

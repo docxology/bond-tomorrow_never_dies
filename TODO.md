@@ -1,69 +1,76 @@
 # TODO — CARVER (tomorrow_never_dies)
 
-## Phase 4 — deep improvement (DONE)
+Open work only. Completed phases are summarized at the bottom as a build
+record, not as a task list.
 
-Added three more pure-domain algorithm modules, deepening each concept area:
+## Open — integration points
 
-- `narrative_control.py` — bounded-confidence opinion dynamics
-  (Hegselmann–Krause) with a Carver-style media injection; polarization /
-  bimodal-split metrics, media capture, and `critical_media_reach`
-  (bisection on the broadcast reach that tips the belief model).
-- `radar_waveform.py` — pulse compression: LFM chirp and Barker-13
-  matched filtering; processing gain, range resolution, peak sidelobe
-  ratio, and `waveform_detection_range` (fourth-root gain).
-- `gnss_integrity.py` — RAIM: scipy-free chi-square quantile, SVD parity
-  space, detection threshold, HPL/VPL protection levels, and noncentral
-  chi-square bias-detection probability.
+* **Provenance persistence.** Mission outcomes carry the protocol's
+  `Provenance` (package version, seed, canonical input hash, `wall_time_s=0`)
+  but nothing writes it to a sidecar. Bind to
+  `bond_utilities.mission_io.record_provenance_outcome` once the shared
+  provenance contract is wired into the suite.
+  *Acceptance:* a mission outcome's `input_hash` matches a persisted
+  `provenance.input_hash` on disk, asserted in `tests/test_mission.py`.
+  *Blocked on:* the shared sidecar contract, which is not this package's to
+  define.
 
-Deepened the canonical scenario to six blocks (media / narrative / stealth /
-waveform / gps / integrity), added three figures (narrative, waveform, raim),
-three new manuscript tokens families (`NARRATIVE_*`, `WAVEFORM_*`, `RAIM_*`),
-new BOND gadgets (`opinion_dynamics`, `critical_reach`, `matched_filter`,
-`raim_detection`), and updated the manuscript + bibliography (Hegselmann–Krause,
-DeGroot, Barker, Parkinson–Axelrad, Brown). **Protocol shape unchanged**: the
-frozen `bond_api.MissionProvider` and the `GADGETS`/`register_gadgets`/
-`GADGET_REGISTRY` convention are preserved; discovery and serialization round-
-trip unchanged. Fixes hardened along the way: integration gain is now counted
-exactly once across `snr_at_range` → `detection_probability`, and the parity
-matrix is built from the full SVD (not complete-QR, whose reduced shape varies
-in numpy).
+## Open — modelling
 
-## What phase-2 built (DONE)
-
-- **Pure domain core** (infrastructure-free, deterministic, real math):
-  - `media_manipulation.py` — belief-state disinformation model on
-    Watts–Strogatz / Barabási–Albert networks; media + social spread;
-    greedy influence maximization; echo-chamber + amplification metrics.
-  - `stealth_detection.py` — radar equation, Marcum-Q (numerically
-    integrated) and Swerling detection probabilities, detection range,
-    RCS metrics.
-  - `gps_denial.py` — Walker-style constellation, DOP, jamming→C/N0
-    degradation, UERE/position error, navigation failure cascade.
-  - `scenario.py` — the canonical seeded run shared by outcome/tokens/figures.
-- **BOND-API adapter**: `mission.py` implements the FROZEN `bond_api`
-  `MissionProvider` (slug `tomorrow_never_dies`, codename CARVER); registers
-  five gadgets with the `GadgetRegistry`; discoverable via `bond_api`
-  discovery; serialization round-trips through the wire format.
-- **Thin CLIs**: `brief.py`, `recon.py`, `plan.py`, `execute.py`,
-  `debrief.py`, `run_mission.py`, `z_generate_manuscript_variables.py`.
-- **Manuscript**: sections `00`–`07` + `99`, config identity, figures (3),
-  `manuscript_variables.py` token injection with live cross-reference gate.
-- **Tests**: per-module, mission/protocol, scenario, manuscript cross-ref,
-  figures, scripts smoke — zero mocks, ≥90% line+branch.
-
-## Declared integration points
-
-- **Provenance persistence**: outcomes currently carry the protocol's
-  `Provenance` (package version, seed, canonical input hash, wall-time 0).
-  Bind to `bond_utilities.mission_io.record_provenance_outcome` once the
-  shared provenance sidecar contract is wired into the suite; acceptance: a
-  mission outcome's input hash matches a persisted `provenance.input_hash`.
-- **Coordinator handoff**: the orchestrator discovers CARVER by slug via
-  `bond_api` discovery (already exercised in `tests/test_mission.py`). No
-  further work expected unless the coordinator adds per-film scheduling
-  fields.
+* **Fluctuating-target detection in the canonical scenario.**
+  `stealth_detection.detection_probability` implements Swerling-1, and it is
+  tested, but `run_carver_scenario` only ever exercises Swerling-0. The
+  published detection ranges therefore describe a nonfluctuating target.
+  `07_scope_and_related_work.md` now states this restriction explicitly; the
+  remaining work is to add a Swerling-1 block to the scenario and report both
+  cases side by side.
+* **Barker-13 is analysed but not carried through.** The scenario computes
+  its gain and sidelobe floor, and the results section reports the trade, but
+  the detection-range recovery is only computed for the LFM chirp. Computing
+  `waveform_detection_range` for the Barker code too would let the manuscript
+  make the reach-vs-sidelobes trade quantitative on both axes rather than one.
+* **Cascade propagation is single-parameter.** `simulate_navigation_cascade`
+  applies one `propagation_factor` to every edge. Per-edge coupling weights
+  would let the maritime network distinguish "depends on for navigation" from
+  "depends on for scheduling", which is the distinction the film's plot
+  actually turns on.
 
 ## Not in scope
 
-- No operational radar/GPS/fleet tooling — this is a didactic mission model.
-- No `infrastructure.*` reuse (pure core is intentionally standalone).
+* No operational radar/GPS/fleet tooling — this is a didactic mission model.
+* No `infrastructure.*` reuse; the pure core is intentionally standalone.
+* No changes to the `MissionProvider` surface or the gadget convention —
+  they are frozen and consumed fleet-wide.
+
+---
+
+## Build record
+
+**Phase 5 — documentation truth + defect sweep (done).** Brought every doc and
+manuscript section into agreement with the phase-4 code; tokenized the last
+hand-authored numbers (Barker-13 sidelobe floor, stealth range loss, campaign
+lift) and all scenario *inputs* in the experimental-setup section; added
+`tests/test_package_surface.py` (concept-list drift, import purity, no
+exception handlers) and three manuscript gates (bare-numeral scan with a
+positive control, orphan-token scan). Fixed genuine defects: the media-target
+seed was an additive offset that left the sort order — and therefore the
+selected audience — effectively seed-independent; `simulate_navigation_cascade`
+raised `KeyError` mid-cascade on an unknown dependent instead of validating at
+the boundary; `_media_targets` took an unused `rng`; `CONCEPTS` and several
+module docstrings still described three concepts; the RAIM module docstring
+claimed QR where the code uses SVD; the debrief hardcoded a "20 dB / two-thirds"
+lesson.
+
+**Phase 4 — deep improvement (done).** Added `narrative_control.py`,
+`radar_waveform.py`, and `gnss_integrity.py`; deepened the canonical scenario
+to six blocks; added three figures, three token families, and four gadgets;
+extended the bibliography (Hegselmann–Krause, DeGroot, Barker,
+Parkinson–Axelrad, Brown). Hardened along the way: integration gain is now
+counted exactly once across `snr_at_range` → `detection_probability`, and the
+parity matrix is built from the full SVD rather than complete-QR (whose
+reduced shape varies in numpy). Protocol shape unchanged.
+
+**Phase 2 — conversion (done).** Built the pure domain core
+(`media_manipulation`, `stealth_detection`, `gps_denial`, `scenario`), the
+`bond_api` adapter in `mission.py`, the thin phase CLIs, the manuscript with
+token injection, and the zero-mock test suite.

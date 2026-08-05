@@ -27,9 +27,22 @@ protocol, and the numbered-section layout.
 Every metric is injected from `manuscript/config.yaml` +
 `src/tomorrow_never_dies/manuscript_variables.py`. You do **not** hand-author
 a number in prose. `scripts/z_generate_manuscript_variables.py` resolves the
-tree into `output/manuscript/`; the live gate
-`tests/test_manuscript_variables.py::test_manuscript_tokens_all_generated`
-fails if any `{{TOKEN}}` in a `[0-9]*.md` section is missing.
+tree into `output/manuscript/`. This covers scenario **inputs** as well as
+results — the experimental-setup section is generated from `SCENARIO_PARAMS`,
+never transcribed from it.
+
+Three live gates in `tests/test_manuscript_variables.py` enforce it:
+
+| Gate | Fails when |
+|---|---|
+| `test_manuscript_tokens_all_generated` | a `{{TOKEN}}` in a `[0-9]*.md` section has no generated value |
+| `test_every_generated_token_is_used_by_the_manuscript` | a generated variable is referenced nowhere (orphan) |
+| `test_no_hand_authored_numbers_in_claim_sections` | a bare numeral appears in `00_abstract.md`, `03_results.md`, or `04_conclusion.md` |
+
+The third has a positive control
+(`test_claim_section_gate_would_catch_a_hand_authored_number`) so it cannot
+pass vacuously. `02_methodology.md` and `99_references.md` are exempt: they
+legitimately carry structural constants and page numbers.
 
 ## Figures
 

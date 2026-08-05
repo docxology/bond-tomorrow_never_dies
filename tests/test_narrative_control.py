@@ -123,8 +123,10 @@ def test_critical_media_reach_edges() -> None:
         network, target_share=0.01, seed=3, steps=6, persuasion=0.5, spread_rate=0.0
     )
     assert easy == pytest.approx(0.0)  # baseline already exceeds a trivial target
+    # One campaign round at 30% persuasion and no social spread cannot reach
+    # 99.9% of the network however wide the broadcast, so the search saturates.
     hard = critical_media_reach(
-        network, target_share=0.999, seed=3, steps=6, persuasion=0.5, spread_rate=0.0
+        network, target_share=0.999, seed=3, steps=2, persuasion=0.3, spread_rate=0.0
     )
     assert hard == pytest.approx(1.0)  # even full reach cannot saturate the network
     mid = critical_media_reach(

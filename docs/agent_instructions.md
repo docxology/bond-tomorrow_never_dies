@@ -13,10 +13,15 @@ Deterministic fakes that implement the real protocol are allowed.
 
 ## Rule 2 — Pure domain core stays infrastructure-free
 
-`media_manipulation.py`, `stealth_detection.py`, `gps_denial.py`, and
-`scenario.py` may import only stdlib + numpy. They must not import
-`infrastructure.*`, `bond_api`, or `matplotlib`. Only `mission.py` imports
-`bond_api`; only `figures.py` imports matplotlib.
+All six concept modules — `media_manipulation.py`, `narrative_control.py`,
+`stealth_detection.py`, `radar_waveform.py`, `gps_denial.py`,
+`gnss_integrity.py` — plus `scenario.py` may import only stdlib, numpy, and
+each other. They must not import `infrastructure.*`, `bond_api`, or
+`matplotlib`. Only `mission.py` imports `bond_api`; only `figures.py` imports
+matplotlib. The list of concept modules lives in `CONCEPTS`
+(`src/tomorrow_never_dies/__init__.py`); `tests/test_package_surface.py`
+pins it against the files on disk and greps each one for banned imports, so
+adding a module without declaring it fails the suite.
 *Consequence:* the scientific core becomes unusable standalone.
 
 ## Rule 3 — Thin orchestrators
@@ -29,9 +34,20 @@ and forward. No math, no model logic, no speculation in scripts.
 
 A number that changes with `SCENARIO_PARAMS` or `config.yaml` belongs in the
 `{{TOKEN}}` map from `src/tomorrow_never_dies/manuscript_variables.py` — never
-hardcoded in prose. The live gate
-`tests/test_manuscript_variables.py::test_manuscript_tokens_all_generated`
-enforces this scan over `manuscript/[0-9]*.md`.
+hardcoded in prose. This applies to scenario **inputs** as much as to results:
+`_format_params` tokenizes the experimental-setup values so a parameter change
+rewrites the setup section instead of silently contradicting it.
+
+Three live gates in `tests/test_manuscript_variables.py` enforce this:
+
+* `test_manuscript_tokens_all_generated` — every token used in
+  `manuscript/[0-9]*.md` resolves.
+* `test_every_generated_token_is_used_by_the_manuscript` — no orphan tokens.
+* `test_no_hand_authored_numbers_in_claim_sections` — no bare numerals in
+  `00_abstract.md`, `03_results.md`, or `04_conclusion.md`. Methodology and
+  references are exempt (structural constants, page numbers). If you add a
+  quantitative claim, add the variable; do not type the number.
+
 *Consequence:* stale, inaccurate manuscript.
 
 ## Rule 5 — Deterministic execution
@@ -46,10 +62,24 @@ Every public function has type hints and a docstring. `ruff` and `mypy` run
 on `src/` and `scripts/` as part of the gate.
 *Consequence:* mypy/ruff CI failure.
 
-## Rule 7 — Clear error messages
+## Rule 7 — Clear error messages, and no swallowed ones
 
 Raise `ValueError` with actionable messages for invalid inputs, and validate
-at the boundary. *Consequence:* silent mis-behaviour.
+at the boundary — including the bool-is-an-int trap, since `isinstance(True,
+int)` is `True`. There are **no `try`/`except` blocks anywhere in the domain
+core**, and `tests/test_package_surface.py` asserts there are none: a model
+that swallows an exception returns a plausible wrong number instead of
+failing. *Consequence:* silent mis-behaviour.
+
+## Rule 8 — Do not change the protocol surface
+
+`mission.py` exposes the frozen `bond_api` `MissionProvider` (`film`,
+`brief`, `recon`, `plan`, `execute`, `debrief`) plus `GADGETS`,
+`register_gadgets`, and `GADGET_REGISTRY`. `bond-cli`, the coordinator's
+reconcile step, and the orchestrator consume these across the fleet. Add
+depth *inside* the methods; adding, renaming, or re-signing a member breaks
+sibling packages you cannot see from here.
+*Consequence:* fleet-wide discovery failure.
 
 ## Verification checklist (run before declaring done)
 
