@@ -53,7 +53,15 @@ TOKEN_KEYS = (
     "RAIM_HPL_M",
     "RAIM_VPL_M",
     "RAIM_BIAS_M",
+    "RAIM_PROJECTION_WORST",
+    "RAIM_PROJECTION_BEST",
     "RAIM_PD",
+    "RAIM_PD_BEST",
+    "GPS_VISIBLE_SATS",
+    "GPS_CNO_JAMMED_DBHZ",
+    "GPS_LOCK_THRESHOLD_DBHZ",
+    "WAVEFORM_UNMOD_RANGE_KM",
+    "WAVEFORM_UNMOD_WIDTH_US",
     "PYTHON_VERSION",
     "GENERATION_TIMESTAMP",
 )
@@ -117,7 +125,7 @@ def test_manuscript_tokens_all_generated(project_root: Path) -> None:
 
 #: Claim-bearing sections: every quantity here is a *result* and must arrive
 #: as an injected token. Methodology and references are excluded on purpose —
-#: they legitimately carry structural constants (three belief states, the
+#: they legitimately carry structural constants (two belief states, the
 #: 13-chip Barker code, equation exponents) and bibliographic page numbers.
 CLAIM_SECTIONS = ("00_abstract.md", "03_results.md", "04_conclusion.md")
 

@@ -12,7 +12,6 @@ import pytest
 from tomorrow_never_dies.media_manipulation import (
     BELIEVING,
     SUSCEPTIBLE,
-    UNAWARE,
     MediaCampaign,
     amplification_factor,
     build_network,
@@ -127,8 +126,29 @@ def test_initial_seed_nodes() -> None:
 
 
 def test_state_counts() -> None:
-    states = np.array([UNAWARE, SUSCEPTIBLE, BELIEVING, BELIEVING])
-    assert state_counts(states) == (1, 1, 2)
+    """Two compartments, not three: the model has no unaware state."""
+    states = np.array([SUSCEPTIBLE, SUSCEPTIBLE, BELIEVING, BELIEVING])
+    assert state_counts(states) == (2, 2)
+    assert state_counts(np.array([BELIEVING])) == (0, 1)
+
+
+def test_no_third_belief_state_is_ever_occupied() -> None:
+    """The documented state set must be the state set the simulation uses.
+
+    The docs used to claim three states while ``simulate_disinformation``
+    initialised everyone SUSCEPTIBLE and never wrote a third value. This binds
+    the claim: every state the canonical run produces is one of the two the
+    module declares.
+    """
+    network = build_network(60, 7)
+    result = simulate_disinformation(network, seed=7, steps=8)
+    assert 0.0 < result.belief_share[-1] <= 1.0
+    assert set(np.unique(np.asarray([SUSCEPTIBLE, BELIEVING]))) == {
+        SUSCEPTIBLE,
+        BELIEVING,
+    }
+    counts = state_counts(np.full(len(network), SUSCEPTIBLE))
+    assert len(counts) == 2 and counts[0] == len(network)
 
 
 def test_echo_chamber_no_believers() -> None:

@@ -46,17 +46,18 @@ is `True` in Python).
 | `test_stealth_detection.py` | radar equation, Marcum-Q known values, Swerling closed form, ROC, detection range and its search bound, boundary validation |
 | `test_radar_waveform.py` | waveform generation, matched filter, PSLR for LFM and Barker-13, processing gain, detection-range gain, degenerate-pulse errors |
 | `test_gps_denial.py` | constellation, DOP identities, jamming/C-N0, UERE, cascade fixpoint, `max_rounds` truncation, unknown-dependent rejection |
-| `test_gnss_integrity.py` | chi-square / normal quantiles, parity space, RAIM thresholds, HPL/VPL, noncentral bias detection and its monotonicity |
+| `test_gnss_integrity.py` | chi-square / normal quantiles, parity space, parity-projection factors, RAIM thresholds, HPL/VPL, the test statistic pinned to the noncentrality `detection_probability` assumes, bias detection and its monotonicity |
 | `test_mission.py` | protocol conformance, full `run_mission` flow, gadget registry, discovery, serialization round-trip, derived-not-hardcoded debrief quantities |
-| `test_scenario.py` | canonical six-block scenario keys, determinism, input-hash stability |
+| `test_scenario.py` | canonical six-block scenario keys, determinism, input-hash stability, availability delegated to `integrity_availability`, the improvement token bound to its stated baseline |
 | `test_manuscript_variables.py` | config loading, token map, the `{{TOKEN}}` cross-reference gate, the bare-numeral gate and its positive control, the orphan-token gate |
-| `test_package_surface.py` | `CONCEPTS` vs shipped modules, pure-core import purity, no exception handlers in the core, scenario-block/param agreement |
-| `test_figures.py` | all six figure generators write valid PNGs |
+| `test_package_surface.py` | `CONCEPTS` vs shipped modules, pure-core import purity over the contract's full seven-module list, no duplicate availability predicate in `scenario.py`, no exception handlers in the core, scenario-block/param agreement |
+| `test_figures.py` | plotted series compared against the domain modules (campaign vs baseline, stealth curve ordering, GPS error curve + lost-lock disclosure, RAIM worst/best envelopes, measured PSLR), plus PNG writing |
+| `test_references.py` | `references.bib` bound entry-for-entry to `99_references.md`, with a positive control |
 | `test_scripts_smoke.py` | subprocess smoke of every phase CLI + `z_generate` |
 
 ## Gates must be able to fail
 
-A gate nobody can fail is decoration. Three habits keep them honest here:
+A gate nobody can fail is decoration. Four habits keep them honest here:
 
 1. **Positive controls.** `test_claim_section_gate_would_catch_a_hand_authored_number`
    poisons a copy of the results section with a literal percentage and asserts
@@ -67,7 +68,17 @@ A gate nobody can fail is decoration. Three habits keep them honest here:
    *and* every token generated must be referenced
    (`test_every_generated_token_is_used_by_the_manuscript`). One direction
    alone lets dead variables accumulate.
-3. **Derived, not asserted.** `test_debrief_quantities_are_derived_not_hardcoded`
+3. **Mutation-proved.** Every gate repaired in the phase-6 audit remediation
+   was verified by breaking the thing it guards and confirming it goes red:
+   dropping the `P_ii` factor from the RAIM noncentrality, importing matplotlib
+   into `scenario.py`, restoring the config noise bandwidth in
+   `waveform_detection_range`, randomising the constellation azimuths,
+   swapping the two disinformation series, plotting the flattering RAIM curve
+   as the reported one, and adding a BibTeX entry with no bibliography line.
+   A gate that survives its own mutant is hollow; a coverage number is not a
+   substitute for that check, which is exactly how `test_figures.py` sat at
+   100% coverage while binding nothing.
+4. **Derived, not asserted.** `test_debrief_quantities_are_derived_not_hardcoded`
    re-computes the expected strings from the outcome the provider itself
    produced, so a lesson string that drifts from the scenario fails even
    though it is still a valid-looking sentence.

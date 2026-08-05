@@ -4,18 +4,26 @@ Six figures across the six domain analyses, all drawn from the real domain
 modules with fixed scenario parameters (no RNG beyond the seeded
 simulations):
 
-* ``fig_disinformation`` — believing fraction over time, media campaign vs
+* ``build_disinformation`` — believing fraction over time, media campaign vs
   no-media baseline (media manipulation).
-* ``fig_narrative`` — bounded-confidence opinion trajectories (mean +/- 1 sd
+* ``build_narrative`` — bounded-confidence opinion trajectories (mean +/- 1 sd
   band) under a media campaign, with the manufactured line (narrative control).
-* ``fig_stealth_detection`` — detection probability vs range for a reference
+* ``build_stealth_detection`` — detection probability vs range for a reference
   and a low-RCS (stealth) target (stealth detection).
-* ``fig_waveform`` — compressed-pulse envelopes (dB) for the LFM chirp and
+* ``build_waveform`` — compressed-pulse envelopes (dB) for the LFM chirp and
   the Barker-13 code (pulse compression).
-* ``fig_gps_denial`` — position error vs jammer standoff distance, with the
-  clean-sky error reference line (GPS denial).
-* ``fig_raim`` — RAIM detection probability vs measurement bias, with the
-  scenario's bias probe marked (GNSS integrity).
+* ``build_gps_denial`` — position error vs jammer standoff distance, with the
+  clean-sky error reference line and the receiver-tracking-threshold region
+  beyond which the code-tracking model is extrapolated (GPS denial).
+* ``build_raim`` — RAIM detection probability vs measurement bias for the
+  worst- and best-placed satellite, with the scenario's bias probe marked
+  (GNSS integrity).
+
+Each figure is built by a pure ``build_*`` function that returns the
+:class:`matplotlib.figure.Figure` *without* writing it, so tests can assert on
+the plotted series, labels and axes rather than only on the existence of a
+PNG. :func:`render_figures` pairs every builder in :data:`FIGURE_BUILDERS`
+with its filename in :data:`FIGURE_FILENAMES` and writes all six.
 
 The matplotlib backend is pinned to ``Agg`` so rendering is headless and
 byte-deterministic given the same input data.
@@ -39,8 +47,10 @@ from tomorrow_never_dies.gnss_integrity import (
     detection_probability as raim_detection_probability,
 )
 from tomorrow_never_dies.gps_denial import (
+    CNO_TRACKING_THRESHOLD_DBHZ,
     effective_cno_dbhz,
     jamming_to_noise_db,
+    maintains_lock,
     position_error_meters,
 )
 from tomorrow_never_dies.media_manipulation import (
@@ -64,7 +74,19 @@ from tomorrow_never_dies.stealth_detection import (
     snr_at_range,
 )
 
-__all__ = ["FIGURES_DIR", "render_figures"]
+__all__ = [
+    "CNO_TRACKING_THRESHOLD_DBHZ",
+    "FIGURES_DIR",
+    "FIGURE_BUILDERS",
+    "FIGURE_FILENAMES",
+    "build_disinformation",
+    "build_gps_denial",
+    "build_narrative",
+    "build_raim",
+    "build_stealth_detection",
+    "build_waveform",
+    "render_figures",
+]
 
 #: Where figures are written (relative to the project root).
 FIGURES_DIR = Path("output") / "figures"
@@ -77,7 +99,7 @@ def _save(figure: plt.Figure, path: Path) -> None:
     plt.close(figure)
 
 
-def fig_disinformation(project_root: Path | str) -> Path:
+def build_disinformation() -> plt.Figure:
     """Believing fraction over time: media campaign vs no-media baseline."""
     media = SCENARIO_PARAMS["media"]
     network = build_network(
@@ -127,12 +149,10 @@ def fig_disinformation(project_root: Path | str) -> Path:
     axis.grid(True, alpha=0.3)
     axis.legend()
     axis.set_ylim(bottom=0.0)
-    path = Path(project_root) / FIGURES_DIR / "disinformation_propagation.png"
-    _save(figure, path)
-    return path
+    return figure
 
 
-def fig_stealth_detection(project_root: Path | str) -> Path:
+def build_stealth_detection() -> plt.Figure:
     """Detection probability vs range for a reference and a stealth target."""
     stealth = SCENARIO_PARAMS["stealth"]
     radar = SCENARIO_PARAMS["stealth"]["radar"]
@@ -182,32 +202,42 @@ def fig_stealth_detection(project_root: Path | str) -> Path:
     axis.grid(True, alpha=0.3)
     axis.legend()
     axis.set_ylim(0.0, 1.02)
-    path = Path(project_root) / FIGURES_DIR / "stealth_detection.png"
-    _save(figure, path)
-    return path
+    return figure
 
 
-def fig_gps_denial(project_root: Path | str) -> Path:
-    """Position error vs jammer standoff distance (fixed jammer power)."""
+def build_gps_denial() -> plt.Figure:
+    """Position error vs jammer standoff distance (fixed jammer power).
+
+    The sweep deliberately runs out to 2000 km, well past the canonical
+    standoff, because that is where the interesting line is: below
+    :data:`~tomorrow_never_dies.gps_denial.CNO_TRACKING_THRESHOLD_DBHZ` a real
+    receiver has lost carrier lock and the ``uere_meters`` code-tracking
+    approximation no longer describes anything physical. At the canonical
+    100 km standoff the whole curve is inside that region, so a figure cropped
+    to 200 km would show only extrapolation with nothing to compare it to.
+    The lost-lock region is shaded and labelled rather than plotted bare.
+    """
     gps = SCENARIO_PARAMS["gps"]
     scenario = run_carver_scenario(seed=SCENARIO_SEED)
     pdop = float(scenario["gps"]["pdop"])
     cno_clean = float(gps["cno_clean_dbhz"])
-    distances = np.geomspace(20.0e3, 200.0e3, 60)
+    distances = np.geomspace(20.0e3, 2000.0e3, 80)
 
-    def error_at(distance: float) -> float:
+    def cno_at(distance: float) -> float:
         jnr = jamming_to_noise_db(
             float(gps["jammer_power_w"]),
             distance,
             jammer_gain_db=float(gps["jammer_gain_db"]),
         )
-        cno = effective_cno_dbhz(cno_clean, jnr)
-        return position_error_meters(pdop, cno)
+        return effective_cno_dbhz(cno_clean, jnr)
+
+    cnos = np.asarray([cno_at(d) for d in distances])
+    errors = np.asarray([position_error_meters(pdop, c) for c in cnos])
 
     figure, axis = plt.subplots(figsize=(7, 4.2))
     axis.semilogx(
         distances / 1.0e3,
-        np.asarray([error_at(d) for d in distances]),
+        errors,
         marker="o",
         markersize=3,
         label="Jammed receiver (1 W jammer)",
@@ -219,17 +249,27 @@ def fig_gps_denial(project_root: Path | str) -> Path:
         linewidth=1,
         label="Clean-sky error",
     )
+    below_lock = np.asarray([not maintains_lock(float(c)) for c in cnos])
+    if bool(below_lock.any()):
+        axis.axvspan(
+            distances[0] / 1.0e3,
+            float(distances[below_lock].max()) / 1.0e3,
+            color="tab:red",
+            alpha=0.12,
+            label=(
+                f"C/N0 < {CNO_TRACKING_THRESHOLD_DBHZ:.0f} dB-Hz: "
+                "receiver has lost lock (model extrapolated)"
+            ),
+        )
     axis.set_xlabel("Jammer standoff distance (km)")
     axis.set_ylabel("1-σ position error (m)")
     axis.set_title("GPS denial: navigation error vs jammer distance")
     axis.grid(True, alpha=0.3)
     axis.legend()
-    path = Path(project_root) / FIGURES_DIR / "gps_denial.png"
-    _save(figure, path)
-    return path
+    return figure
 
 
-def fig_narrative(project_root: Path | str) -> Path:
+def build_narrative() -> plt.Figure:
     """Bounded-confidence opinion trajectories under a media campaign."""
     narrative = SCENARIO_PARAMS["narrative"]
     result = simulate_opinions(
@@ -264,12 +304,10 @@ def fig_narrative(project_root: Path | str) -> Path:
     axis.grid(True, alpha=0.3)
     axis.legend()
     axis.set_ylim(0.0, 1.0)
-    path = Path(project_root) / FIGURES_DIR / "narrative_control.png"
-    _save(figure, path)
-    return path
+    return figure
 
 
-def fig_waveform(project_root: Path | str) -> Path:
+def build_waveform() -> plt.Figure:
     """Compressed-pulse envelopes (dB) for the LFM chirp and Barker-13 code."""
     wfm = SCENARIO_PARAMS["waveform"]
     lfm = Waveform(
@@ -285,7 +323,7 @@ def fig_waveform(project_root: Path | str) -> Path:
         sample_rate_hz=13.0e6,
     )
 
-    def normalized_db(waveform) -> tuple[np.ndarray, np.ndarray]:
+    def normalized_db(waveform: Waveform) -> tuple[np.ndarray, np.ndarray]:
         echo = compress(generate_waveform(waveform), generate_waveform(waveform))
         envelope = np.abs(echo)
         peak = float(np.max(envelope))
@@ -296,9 +334,10 @@ def fig_waveform(project_root: Path | str) -> Path:
         hi = min(envelope.size, center + margin + 1)
         return np.arange(lo - center, hi - center), level[lo:hi]
 
+    gain = float(wfm["bandwidth_hz"]) * float(wfm["pulse_width_s"])
     figure, axis = plt.subplots(figsize=(7, 4.2))
     for waveform, label, color in (
-        (lfm, "LFM chirp (B·T = 500)", "tab:blue"),
+        (lfm, f"LFM chirp (B·T = {gain:.0f})", "tab:blue"),
         (barker, "Barker-13", "tab:orange"),
     ):
         x, y = normalized_db(waveform)
@@ -309,31 +348,57 @@ def fig_waveform(project_root: Path | str) -> Path:
     axis.grid(True, alpha=0.3)
     axis.legend()
     axis.set_ylim(-45, 5)
-    path = Path(project_root) / FIGURES_DIR / "waveform_pulse_compression.png"
-    _save(figure, path)
-    return path
+    return figure
 
 
-def fig_raim(project_root: Path | str) -> Path:
-    """RAIM detection probability vs measurement bias, with the probe marked."""
+def build_raim() -> plt.Figure:
+    """RAIM detection probability vs bias, worst- and best-placed satellite.
+
+    Detection probability is not a single curve: the parity projection sees
+    only ``P_ii`` of a fault on satellite ``i``, so the same bias is caught
+    with different probability depending on which satellite carries it. Both
+    envelope curves are plotted, and the scenario probe is marked on the
+    worst-case (reported) curve.
+    """
     integrity = SCENARIO_PARAMS["integrity"]
     scenario = run_carver_scenario(seed=SCENARIO_SEED)
-    dof = int(scenario["integrity"]["dof"])
+    block = scenario["integrity"]
+    dof = int(block["dof"])
+    worst = float(block["projection_factor_worst"])
+    best = float(block["projection_factor_best"])
     p_fa = float(integrity["p_fa"])
     sigma = float(integrity["sigma_m"])
     biases = np.linspace(0.0, 30.0, 61)
-    probabilities = np.asarray(
-        [
-            raim_detection_probability(float(b), dof=dof, p_fa=p_fa, sigma=sigma)
-            for b in biases
-        ]
-    )
-    probe = float(integrity["bias_probe_m"])
-    probe_pd = raim_detection_probability(probe, dof=dof, p_fa=p_fa, sigma=sigma)
+
+    def curve(factor: float) -> np.ndarray:
+        return np.asarray(
+            [
+                raim_detection_probability(
+                    float(b),
+                    dof=dof,
+                    p_fa=p_fa,
+                    projection_factor=factor,
+                    sigma=sigma,
+                )
+                for b in biases
+            ]
+        )
+
+    probe = float(block["bias_probe_m"])
+    probe_pd = float(block["detection_probability"])
 
     figure, axis = plt.subplots(figsize=(7, 4.2))
     axis.plot(
-        biases, probabilities * 100.0, color="tab:blue", label="Detection probability"
+        biases,
+        curve(best) * 100.0,
+        color="tab:green",
+        label=f"Best-placed satellite (P_ii = {best:.2f})",
+    )
+    axis.plot(
+        biases,
+        curve(worst) * 100.0,
+        color="tab:blue",
+        label=f"Worst-placed satellite (P_ii = {worst:.2f}, reported)",
     )
     axis.axvline(
         probe,
@@ -349,9 +414,28 @@ def fig_raim(project_root: Path | str) -> Path:
     axis.grid(True, alpha=0.3)
     axis.legend()
     axis.set_ylim(0.0, 102.0)
-    path = Path(project_root) / FIGURES_DIR / "raim_detection.png"
-    _save(figure, path)
-    return path
+    return figure
+
+
+#: Figure name → the pure builder that produces it.
+FIGURE_BUILDERS: dict[str, Callable[[], plt.Figure]] = {
+    "disinformation": build_disinformation,
+    "narrative": build_narrative,
+    "stealth_detection": build_stealth_detection,
+    "waveform": build_waveform,
+    "gps_denial": build_gps_denial,
+    "raim": build_raim,
+}
+
+#: Figure name → the PNG filename written under :data:`FIGURES_DIR`.
+FIGURE_FILENAMES: dict[str, str] = {
+    "disinformation": "disinformation_propagation.png",
+    "narrative": "narrative_control.png",
+    "stealth_detection": "stealth_detection.png",
+    "waveform": "waveform_pulse_compression.png",
+    "gps_denial": "gps_denial.png",
+    "raim": "raim_detection.png",
+}
 
 
 def render_figures(project_root: Path | str) -> dict[str, Path]:
@@ -363,12 +447,9 @@ def render_figures(project_root: Path | str) -> dict[str, Path]:
     root = Path(project_root)
     out_dir = root / FIGURES_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    generators: dict[str, Callable[[Path], Path]] = {
-        "disinformation": fig_disinformation,
-        "narrative": fig_narrative,
-        "stealth_detection": fig_stealth_detection,
-        "waveform": fig_waveform,
-        "gps_denial": fig_gps_denial,
-        "raim": fig_raim,
-    }
-    return {name: generator(root) for name, generator in generators.items()}
+    written: dict[str, Path] = {}
+    for name, builder in FIGURE_BUILDERS.items():
+        path = out_dir / FIGURE_FILENAMES[name]
+        _save(builder(), path)
+        written[name] = path
+    return written

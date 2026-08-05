@@ -11,7 +11,10 @@ naming each rather than gesturing at "simplifications":
 * **Disinformation propagation** — conversion probabilities are free
   parameters, not fitted quantities. The model shows how a two-channel
   campaign behaves for a given persuasion and spread rate; it says nothing
-  about what those rates are for any real population.
+  about what those rates are for any real population. The compartmental
+  structure is deliberately two-state (susceptible, believing): there is no
+  unaware compartment and no return path, so the model cannot represent
+  reach-limited awareness or belief decay.
 * **Narrative control** — the bounded-confidence update is a mechanism, not a
   measurement. Hegselmann–Krause has no empirical calibration here at all: the
   confidence radius and media weight are chosen, and the reported capture and
@@ -23,13 +26,32 @@ naming each rather than gesturing at "simplifications":
   detection ranges describe.
 * **Pulse compression** — the compression gain is treated as ideal coherent
   integration, with no weighting losses, no Doppler mismatch, and no
-  range–Doppler coupling, all of which degrade a real LFM chirp.
-* **GPS denial** — one jamming source, a fixed constellation geometry, and a
-  dependency cascade with a single scalar coupling factor on every edge
-  rather than a real receiver-in-the-loop or per-link model.
+  range–Doppler coupling, all of which degrade a real LFM chirp. The noise
+  bandwidth is set equal to the waveform bandwidth, which is the matched-filter
+  ideal; a real receiver's noise bandwidth exceeds it. Because range then
+  depends on pulse energy alone, the reported improvement is meaningful only
+  against the stated equal-resolution baseline — quoting it against a pulse of
+  equal *duration* would be wrong, and against the radar's surveillance pulse
+  it would mix a resolution change into a range claim.
+* **GPS denial** — one jamming source; a single-epoch snapshot of one Walker
+  constellation over one receiver, on a spherical non-rotating Earth with no
+  orbital eccentricity, no J2 drift, and no per-satellite signal budget, so
+  the visible count and DOP describe that instant and not a daily
+  distribution; and a dependency cascade with a single scalar coupling factor
+  on every edge rather than a real receiver-in-the-loop or per-link model.
+  The UERE code-tracking term ``47·10^(−C/N0/20)`` is extrapolated below a
+  receiver's lock threshold, and the canonical jamming case is entirely inside
+  that region: the reported jammed position error is the formula continued
+  past its validity, not an accuracy any receiver would achieve. The figure is
+  shaded accordingly. The threshold itself is a single representative
+  constant, not a receiver-specific budget, and no acquisition-versus-tracking
+  distinction is modelled.
 * **GNSS integrity** — single-fault RAIM only. Multiple simultaneous faults,
   the case that most concerns a deliberate spoofer, are outside the
-  parity-space assumption used here.
+  parity-space assumption used here. Detection probability is also
+  satellite-specific (noncentrality ``P_ii (b/σ)²``); the single figure
+  reported is the worst-placed satellite, and no claim is made that a bias of
+  the probed size is caught reliably — at this geometry it is not.
 
 These restrictions are the price of keeping every computation transparent,
 deterministic, and verifiable end to end from a bare checkout.

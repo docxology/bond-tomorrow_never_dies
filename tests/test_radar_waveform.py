@@ -110,20 +110,71 @@ def test_range_improvement() -> None:
     assert range_improvement(BARKER) == pytest.approx(13.0**0.25, rel=1e-6)
 
 
-def test_waveform_detection_range() -> None:
+def test_waveform_detection_range_matches_the_config_at_matched_bandwidth() -> None:
+    """The compression path equals the plain radar equation when both agree.
+
+    ``waveform_detection_range`` substitutes the waveform's own bandwidth for
+    the receiver noise bandwidth. The equivalence to
+    ``stealth_detection.detection_range`` therefore holds against a config
+    carrying *that* bandwidth — which is the point: the previous version
+    matched a config whose 1 MHz noise floor was ten times narrower than the
+    10 MHz waveform, banking ~10 dB of gain twice.
+    """
+    rcs = 0.01
+    unmod_cfg = RadarConfig(pulses=4, bandwidth_hz=waveform_bandwidth(UNMOD))
+    base = detection_range(rcs, p_fa=1e-6, p_d_target=0.9, config=unmod_cfg)
+    assert waveform_detection_range(
+        rcs, UNMOD, config=RadarConfig(pulses=4)
+    ) == pytest.approx(base, rel=1e-6)
+
+
+def test_waveform_detection_range_does_not_double_count_the_noise_floor() -> None:
+    """A narrower config noise bandwidth must not inflate the reported range.
+
+    ``waveform_detection_range`` overrides it, so the same waveform gives the
+    same range whatever bandwidth the config carried. Under the old code these
+    differed by ``(10)^(1/4)``.
+    """
+    rcs = 0.01
+    narrow = waveform_detection_range(
+        rcs, LFM, config=RadarConfig(pulses=4, bandwidth_hz=1.0e6)
+    )
+    wide = waveform_detection_range(
+        rcs, LFM, config=RadarConfig(pulses=4, bandwidth_hz=20.0e6)
+    )
+    assert narrow == pytest.approx(wide, rel=1e-9)
+
+
+def test_pulse_compression_buys_range_only_against_equal_resolution() -> None:
+    """Matched filtering makes range depend on pulse energy alone.
+
+    Against an unmodulated pulse of the *same duration* the chirp wins
+    nothing; against one of the same range *resolution* (duration ``1/B``) it
+    wins the fourth root of ``B*T``. Both directions are asserted, because the
+    published improvement is quoted against the second baseline and would be
+    an artefact if the first one also showed a gain.
+    """
     cfg = RadarConfig(pulses=4)
     rcs = 0.01
-    base = detection_range(rcs, p_fa=1e-6, p_d_target=0.9, config=cfg)
-    unmod_range = waveform_detection_range(rcs, UNMOD, config=cfg)
     lfm_range = waveform_detection_range(rcs, LFM, config=cfg)
-    # An uncompressed pulse with the same radar config matches the base range.
-    assert unmod_range == pytest.approx(base, rel=1e-6)
-    # Compression extends the detection range by the fourth root of the gain.
-    assert lfm_range > unmod_range
-    assert lfm_range / unmod_range == pytest.approx(500.0**0.25, rel=1e-3)
+
+    same_duration = Waveform(
+        kind="unmodulated", pulse_width_s=LFM.pulse_width_s, sample_rate_hz=1e6
+    )
+    assert waveform_detection_range(rcs, same_duration, config=cfg) == pytest.approx(
+        lfm_range, rel=1e-3
+    )
+
+    same_resolution = Waveform(
+        kind="unmodulated",
+        pulse_width_s=1.0 / LFM.bandwidth_hz,
+        sample_rate_hz=LFM.sample_rate_hz,
+    )
+    short_range = waveform_detection_range(rcs, same_resolution, config=cfg)
+    assert lfm_range / short_range == pytest.approx(500.0**0.25, rel=1e-3)
     # More processing gain -> monotonically longer detection range.
     barker_range = waveform_detection_range(rcs, BARKER, config=cfg)
-    assert lfm_range > barker_range > unmod_range
+    assert lfm_range > barker_range > 0.0
 
 
 def test_generate_waveform_rejects_sub_two_sample_pulse() -> None:

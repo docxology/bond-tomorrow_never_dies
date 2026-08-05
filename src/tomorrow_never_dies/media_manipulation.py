@@ -5,7 +5,10 @@ global outlet with a fixed reach converts a fraction of its audience to a
 manufactured belief, and believing agents then convert their social
 neighbors. This module makes that dynamic quantitative and deterministic.
 
-The model is a two-channel belief-diffusion on a graph:
+The model is a two-channel, **two-state** belief-diffusion on a graph. Every
+agent is either ``SUSCEPTIBLE`` or ``BELIEVING``; there is no unaware
+compartment, because both channels act on the same susceptible pool and a
+never-occupied third state would be decoration. Conversion is one-way:
 
 * **Media channel** — each campaign round, a deterministic subset of nodes
   (the ``reach``) is exposed; every susceptible exposed node converts to the
@@ -33,7 +36,6 @@ import numpy as np
 __all__ = [
     "BELIEVING",
     "SUSCEPTIBLE",
-    "UNAWARE",
     "InfluenceResult",
     "MediaCampaign",
     "SimulationResult",
@@ -45,12 +47,10 @@ __all__ = [
     "state_counts",
 ]
 
-#: Agent state: has not encountered the manufactured message.
-UNAWARE = 0
-#: Agent state: has encountered the message but does not (yet) believe it.
-SUSCEPTIBLE = 1
+#: Agent state: does not (yet) believe the manufactured message.
+SUSCEPTIBLE = 0
 #: Agent state: believes the manufactured message and spreads it socially.
-BELIEVING = 2
+BELIEVING = 1
 
 #: Node-index mixing constant (Knuth's 32-bit golden-ratio multiplier) for the
 #: deterministic media-target sweep.
@@ -207,10 +207,13 @@ def build_network(
     return tuple(tuple(sorted(adj[i])) for i in range(n_nodes))
 
 
-def state_counts(states: np.ndarray) -> tuple[int, int, int]:
-    """Return ``(unaware, susceptible, believing)`` counts for a state array."""
-    counts = np.bincount(states, minlength=3)
-    return int(counts[UNAWARE]), int(counts[SUSCEPTIBLE]), int(counts[BELIEVING])
+def state_counts(states: np.ndarray) -> tuple[int, int]:
+    """Return ``(susceptible, believing)`` counts for a state array.
+
+    Two entries, not three: the model has exactly two occupied states.
+    """
+    counts = np.bincount(states, minlength=2)
+    return int(counts[SUSCEPTIBLE]), int(counts[BELIEVING])
 
 
 def _target_score(index: int, seed: int) -> int:

@@ -5,8 +5,8 @@ algorithmic grounding.
 
 ## Disinformation propagation
 
-Agents occupy one of three belief states — unaware, susceptible, or believing —
-on a Watts–Strogatz small-world network of {{MEDIA_NODES}} nodes (seed
+Agents occupy one of two belief states — susceptible or believing — on a
+Watts–Strogatz small-world network of {{MEDIA_NODES}} nodes (seed
 {{CARVER_SEED}}). The broadcast footprint — the {{MEDIA_REACH_PCT}}% of nodes the
 media channel reaches — is selected by a deterministic index mix rather than
 an RNG draw, so it is a pure function of network size, reach, and seed, and
@@ -56,18 +56,42 @@ the code's autocorrelation is 13 at zero lag and unity elsewhere, the best
 uniform sidelobe floor known for a single binary code, with the measured
 value sitting just above the ideal ``20 log10(1/13)`` because a finite sample
 rate quantizes the chip boundaries). The matched filter is an exact
-convolution; the resulting
-compression gain is treated as coherent integration, so the detection range
-of a low-RCS target follows the fourth-root law
-``R ∝ gain^(1/4)`` (`waveform_detection_range`).
+convolution; the compression gain is treated as coherent integration *and*
+the receiver noise bandwidth is set to the waveform's own bandwidth, which
+together reduce the budget to matched-filter energy ``P_t T / N_0``. Both
+substitutions are needed: banking the ``B·T`` gain against the radar's
+narrower surveillance noise bandwidth would credit the gain twice.
+Consequently a modulated and an unmodulated pulse of *equal duration* have
+equal detection range, and the reported recovery
+(`waveform_detection_range`) is measured against an unmodulated pulse of
+equal range *resolution* — duration {{WAVEFORM_UNMOD_WIDTH_US}} µs — where
+the fourth-root law ``R ∝ gain^(1/4)`` applies.
 
 ## GPS-denial impact
 
-`gps_denial.py` builds a deterministic Walker-style constellation, computes the
-geometry matrix and dilution of precision, and quantifies jamming degradation
-of carrier-to-noise (which pushes effective C/N0 negative) into position-error
-growth (``PDOP * UERE``). `simulate_navigation_cascade` then propagates failure
-across a maritime dependency network until a fixpoint.
+`gps_denial.py` builds a Walker-delta constellation as orbital geometry —
+{{GPS_SATELLITES}} satellites split evenly across {{GPS_PLANES}} inclined
+circular planes, propagated to Earth-centred positions and projected into the
+receiver's east/north/up frame — so azimuth and elevation are derived, not
+drawn, and only the {{GPS_VISIBLE_SATS}} satellites geometrically in view
+above the {{GPS_MASK_ANGLE_DEG}}° mask enter the geometry matrix and the
+dilution of precision. It then quantifies jamming degradation of
+carrier-to-noise into position-error growth (``PDOP * UERE``).
+
+That growth has a validity boundary, and the canonical scenario sits on the
+wrong side of it. At the {{GPS_JAMMER_STANDOFF_KM}} km standoff the effective
+C/N0 falls from {{GPS_CNO_CLEAN_DBHZ}} to {{GPS_CNO_JAMMED_DBHZ}} dB-Hz —
+still positive, but far below the {{GPS_LOCK_THRESHOLD_DBHZ}} dB-Hz a C/A
+receiver needs to hold carrier lock. `maintains_lock` reports that verdict
+explicitly rather than leaving it implicit in a smooth curve. The honest
+reading is therefore *denial*: a real receiver stops producing a solution,
+and the {{GPS_ERROR_JAMMED_M}} m quoted in the results is what the
+code-tracking formula extrapolates past its own validity, not an accuracy a
+receiver would report. @fig:gps shades that region for the same reason and
+extends to 2000 km so the standoff at which lock returns is visible.
+Loss of navigation, not degraded navigation, is what
+`simulate_navigation_cascade` then propagates across the maritime dependency
+network until a fixpoint.
 
 ## GNSS integrity (RAIM)
 
@@ -78,4 +102,12 @@ matrix; a test statistic and detection threshold at a target false-alarm
 rate; per-satellite fault slopes; and horizontal/vertical protection levels
 (HPL/VPL) with a missed-detection margin. `detection_probability` reports the
 probability of catching a measurement bias of a given size via the noncentral
-chi-square.
+chi-square. The parity projection is *not* norm-preserving: a bias ``b`` on
+satellite ``i`` lands in parity space with squared length ``P_ii b²``, where
+``P_ii ≤ 1`` is that satellite's projection factor
+(`parity_projection_factors`, summing to the ``n − 4`` degrees of freedom).
+The noncentrality is therefore ``P_ii (b/σ)²`` and detection probability
+depends on *which* satellite is faulted, so `detection_probability` requires
+the factor as an argument rather than defaulting to one. The reported figure
+is the worst-placed satellite, matching the worst-slope convention the
+protection levels already use.

@@ -19,8 +19,10 @@ For each waveform the module computes the matched-filter (pulse-compression)
 output, range resolution ``c / (2B)``, processing gain, peak sidelobe ratio,
 the fourth-root detection-range improvement, and the actual detection range
 of a low-RCS target through the radar equation with the compression gain
-treated as coherent integration (consistent with
-:mod:`tomorrow_never_dies.stealth_detection`).
+treated as coherent integration *and* the receiver noise bandwidth matched to
+the waveform's own bandwidth (consistent with
+:mod:`tomorrow_never_dies.stealth_detection`; see
+:func:`waveform_detection_range` for why both are needed).
 
 Everything is deterministic (the waveforms are pure functions of their
 parameters; the FFT-free matched filter is an exact convolution).
@@ -222,14 +224,27 @@ def waveform_detection_range(
     """Detection range (m) of a target when the waveform's compression gain
     is treated as coherent integration.
 
-    The effective pulse count is ``config.pulses * processing_gain``, so the
-    range follows the radar equation exactly as in
-    :func:`stealth_detection.detection_range`.
+    Two substitutions are made into ``config``, and both are required for the
+    energy budget to close:
+
+    * the effective pulse count becomes ``config.pulses * processing_gain``;
+    * the **receiver noise bandwidth becomes the waveform's own matched-filter
+      bandwidth** :func:`waveform_bandwidth`, not whatever ``config`` carried.
+
+    Keeping ``config``'s bandwidth while banking the full ``B*T`` compression
+    gain double-counts: it credits the gain against a noise floor narrower
+    than the waveform occupies. With both substitutions the SNR reduces to
+    ``P_t T / N_0`` — matched-filter energy — so a long modulated pulse and a
+    short unmodulated pulse of the *same duration* correctly give the same
+    detection range, and pulse compression's real gain shows up against an
+    unmodulated pulse of the same range *resolution*.
     """
     cfg = config or RadarConfig()
     gain = processing_gain(waveform)
     effective_pulses = max(1, round(cfg.pulses * gain))
-    compressed_cfg = replace(cfg, pulses=effective_pulses)
+    compressed_cfg = replace(
+        cfg, pulses=effective_pulses, bandwidth_hz=waveform_bandwidth(waveform)
+    )
     return detection_range(
         rcs_sqm,
         p_fa=p_fa,

@@ -15,7 +15,9 @@ Nothing points left. The six domain modules import numpy and each other; they
 never import `bond_api`, `infrastructure.*`, or matplotlib, which is why the
 science core stays usable when the BOND protocol package is not installed.
 `tests/test_package_surface.py::test_pure_core_imports_no_bond_api_or_infrastructure`
-enforces that by reading the source, not by convention.
+enforces that by reading the source, not by convention — over the module list
+declared in `manuscript/layer_contract.yaml`, which is the six concepts plus
+`scenario.py`.
 
 ## Layers
 
@@ -34,8 +36,9 @@ the model of the weapon and the model of the thing that answers it.
 
 ### Media
 
-**`media_manipulation.py`** (attack). Three-state belief diffusion
-(unaware / susceptible / believing) on a graph. `build_network` produces
+**`media_manipulation.py`** (attack). Two-state belief diffusion
+(susceptible / believing) on a graph — there is no unaware compartment, and
+the module ships no state constant that no run ever occupies. `build_network` produces
 Watts–Strogatz small-world or Barabási–Albert preferential-attachment
 adjacency as a tuple of tuples. `simulate_disinformation` runs two channels
 per round: a media channel over a fixed broadcast footprint (selected by
@@ -82,8 +85,11 @@ same fourth-root law as the stealth penalty it answers.
 
 ### Navigation
 
-**`gps_denial.py`** (attack). `walker_constellation` builds a deterministic
-pseudo-Walker sky; `geometry_matrix` and `compute_dop` give
+**`gps_denial.py`** (attack). `walker_constellation` builds a Walker-delta
+constellation as orbital geometry — evenly spaced RAANs, in-plane phasing,
+inclined circular orbits projected into the receiver's east/north/up frame,
+with below-horizon satellites culled, so a receiver sees the realistic 8-12
+of 24 rather than nearly all of them; `geometry_matrix` and `compute_dop` give
 GDOP/PDOP/HDOP/VDOP. `jamming_to_noise_db` computes J/N at a standoff
 distance, `effective_cno_dbhz` degrades C/N0 by it, `uere_meters` grows the
 code-tracking noise term as the signal weakens, and `position_error_meters` is
@@ -98,8 +104,11 @@ round count, and failed fraction.
 singular vectors of the full SVD of the geometry matrix — deliberately SVD and
 not `mode="complete"` QR, whose reduced-Q shape varies across numpy versions.
 `test_statistic`, `raim_threshold`, `slopes`, and `protection_levels` produce
-HPL/VPL with a missed-detection margin; `detection_probability` gives the
-probability of catching a bias of a given size.
+HPL/VPL with a missed-detection margin. `parity_projection_factors` returns
+the per-satellite ``P_ii`` (each < 1, summing to the degrees of freedom), and
+`detection_probability` requires one as an argument: the projection is not
+norm-preserving, so the probability of catching a bias depends on which
+satellite carries it and there is no honest default.
 
 ### The supporting four
 
@@ -114,7 +123,10 @@ probability of catching a bias of a given size.
   `_format_metrics` (scenario *results*) build the `{{TOKEN}}` map;
   `load_mission_config` reads identity from `manuscript/config.yaml`.
 * **`figures.py`** — six deterministic figures, one per concept, matplotlib
-  pinned to `Agg`.
+  pinned to `Agg`. Each is produced by a pure `build_*` returning the Figure;
+  `render_figures` pairs `FIGURE_BUILDERS` with `FIGURE_FILENAMES` and writes
+  the PNGs. The split exists so `tests/test_figures.py` can assert on the
+  plotted series rather than on file size.
 
 ## How `mission.py` implements the frozen `MissionProvider`
 

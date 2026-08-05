@@ -45,7 +45,7 @@ The module list is not maintained by hand: `CONCEPTS` in
 
 | Surface | Modules | Rule |
 |---|---|---|
-| Pure domain core | the six concept modules + `scenario.py` | stdlib + numpy + siblings only; no `infrastructure.*`, no `bond_api`, no matplotlib |
+| Pure domain core | the six concept modules + `scenario.py` (the list `tests/test_package_surface.py` reads from `layer_contract.yaml` and greps) | stdlib + numpy + siblings only; no `infrastructure.*`, no `bond_api`, no matplotlib |
 | Protocol adapter | `mission.py` | The only `bond_api` consumer; registers gadgets at import |
 | Workflow | `figures.py`, `manuscript_variables.py` | matplotlib / yaml + `scenario`; render & inject |
 | Orchestrators | `scripts/*.py` | Thin CLIs; no business logic |

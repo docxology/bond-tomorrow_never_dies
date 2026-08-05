@@ -15,10 +15,18 @@ tipping point is a reach of just {{NARRATIVE_CRITICAL_REACH_PCT}}%). A radar mod
 finds that a {{STEALTH_RCS_REDUCTION_DB}} dB low-RCS reduction drops a stealth
 hull's detection range to {{STEALTH_RANGE_KM}} km, but pulse compression
 ({{WAVEFORM_GAIN_DB}} dB, {{WAVEFORM_RES_M}} m resolution, {{WAVEFORM_PSLR_DB}} dB range
-sidelobes) restores it to {{WAVEFORM_RANGE_KM}} km. A GPS-denial model degrades
-navigation error from {{GPS_ERROR_CLEAN_M}} m to {{GPS_ERROR_JAMMED_M}} m and fails
+sidelobes) restores it to {{WAVEFORM_RANGE_KM}} km —
+{{WAVEFORM_IMPROVEMENT_PCT}}% beyond an unmodulated pulse of the same range
+resolution. A GPS-denial model drives effective C/N0 from
+{{GPS_CNO_CLEAN_DBHZ}} to {{GPS_CNO_JAMMED_DBHZ}} dB-Hz at
+{{GPS_JAMMER_STANDOFF_KM}} km — below the {{GPS_LOCK_THRESHOLD_DBHZ}} dB-Hz
+carrier-lock threshold, so the modelled outcome is loss of lock rather than
+the {{GPS_ERROR_JAMMED_M}} m the range-error formula extrapolates past its
+validity (clean-sky: {{GPS_ERROR_CLEAN_M}} m) — and fails
 {{GPS_CASCADE_FRACTION}} of the maritime dependency network; its RAIM guardian
-bounds the damage (HPL {{RAIM_HPL_M}} m) and detects a {{RAIM_BIAS_M}} m corrupted
-navigation measurement with {{RAIM_PD}}% probability.
+bounds the damage (HPL {{RAIM_HPL_M}} m) but catches a {{RAIM_BIAS_M}} m corrupted
+navigation measurement with only {{RAIM_PD}}% probability on the worst-placed
+satellite ({{RAIM_PD_BEST}}% on the best-placed) — the parity projection sees
+only part of any single-satellite fault.
 
 Keywords: {{CARVER_KEYWORDS}}.

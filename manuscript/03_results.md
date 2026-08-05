@@ -41,9 +41,17 @@ stealth hull) cuts the detection range from {{STEALTH_REF_RANGE_KM}} km to
 The radar claws the range back. An LFM waveform with {{WAVEFORM_BANDWIDTH_MHZ}} MHz
 of bandwidth yields {{WAVEFORM_GAIN_DB}} dB of processing gain and
 {{WAVEFORM_RES_M}} m of range resolution at a {{WAVEFORM_PSLR_DB}} dB sidelobe floor.
-Treating that gain as coherent integration restores the stealth hull's
-detection range from {{STEALTH_RANGE_KM}} km to {{WAVEFORM_RANGE_KM}} km — a
-{{WAVEFORM_IMPROVEMENT_PCT}}% improvement, exactly the fourth-root of the gain.
+Treating that gain as coherent integration — with the noise bandwidth matched
+to the waveform — restores the stealth hull's detection range from
+{{STEALTH_RANGE_KM}} km under the radar's unmodulated surveillance pulse to
+{{WAVEFORM_RANGE_KM}} km. Measured against the like-for-like baseline, an
+unmodulated pulse of the *same range resolution*
+({{WAVEFORM_UNMOD_WIDTH_US}} µs, reaching {{WAVEFORM_UNMOD_RANGE_KM}} km),
+that is a {{WAVEFORM_IMPROVEMENT_PCT}}% improvement — exactly the fourth root
+of the gain. The two baselines are different pulses and the comparison is
+stated against each explicitly: matched filtering makes range depend on pulse
+energy alone, so compression does not buy range over an equally long pulse;
+what it buys is that resolution stops costing range.
 @fig:waveform shows the compressed-pulse envelopes of the LFM chirp and the
 Barker-13 code. The Barker code buys far less gain ({{WAVEFORM_BARKER_GAIN}}x
 against the chirp's {{WAVEFORM_GAIN_DB}} dB) but pays for it with a much cleaner
@@ -55,9 +63,18 @@ risk that a sidelobe of a bright return masks a dim one beside it.
 
 ## GPS-denial impact
 
-With a position dilution of precision of {{GPS_PDOP}}, a clean-sky receiver sits
-at {{GPS_ERROR_CLEAN_M}} m of 1-sigma error; under a {{GPS_JNR_DB}} dB jammer-to-noise
-ratio that swells to {{GPS_ERROR_JAMMED_M}} m. The jamming cascades:
+The Walker geometry puts {{GPS_VISIBLE_SATS}} of the {{GPS_SATELLITES}}
+satellites above the {{GPS_MASK_ANGLE_DEG}}° mask at the receiver — the
+realistic count for a single epoch, not the whole constellation. With the
+resulting position dilution of precision of {{GPS_PDOP}}, a clean-sky receiver
+sits at {{GPS_ERROR_CLEAN_M}} m of 1-sigma error. A {{GPS_JNR_DB}} dB
+jammer-to-noise ratio pulls the effective C/N0 to
+{{GPS_CNO_JAMMED_DBHZ}} dB-Hz — below the {{GPS_LOCK_THRESHOLD_DBHZ}} dB-Hz
+carrier-lock threshold, so the modelled outcome is that the receiver stops
+tracking rather than reports a worse fix. The UERE formula, which has no
+notion of losing lock, extrapolates {{GPS_ERROR_JAMMED_M}} m there; that
+number is reported as the extrapolation it is and not as an achieved
+accuracy. Either way the jamming cascades:
 {{GPS_CASCADE_FRACTION}} of the maritime systems fail over {{GPS_CASCADE_ROUNDS}}
 cascade rounds. @fig:gps plots position error against jammer standoff
 distance.
@@ -69,9 +86,18 @@ distance.
 RAIM sets the receiver's guardrails: with {{RAIM_DOF}} degrees of freedom and a
 test-statistic threshold of {{RAIM_THRESHOLD}}, the horizontal and vertical
 protection levels are {{RAIM_HPL_M}} m and {{RAIM_VPL_M}} m — comfortably inside the
-maritime alert limit, so integrity is declared *available*. A
-{{RAIM_BIAS_M}} m corrupted navigation measurement is caught with
-{{RAIM_PD}}% probability. @fig:raim shows the detection probability ramp against
-measurement bias.
+maritime alert limit, so integrity is declared *available*.
+
+Detection of a {{RAIM_BIAS_M}} m corrupted measurement is *not* a single
+number, because the parity projection sees only the fraction ``P_ii`` of a
+fault on satellite ``i``: that fraction runs from
+{{RAIM_PROJECTION_WORST}} to {{RAIM_PROJECTION_BEST}} across this geometry. The
+same bias is therefore caught with {{RAIM_PD}}% probability on the
+worst-placed satellite and {{RAIM_PD_BEST}}% on the best-placed one; the
+worst case is the figure reported, because it is the one integrity has to
+survive. This is the honest cost of a modest {{RAIM_DOF}}-degree-of-freedom
+geometry: the protection level, not the detection probability, is what RAIM
+guarantees at this bias size. @fig:raim shows both ramps against measurement
+bias.
 
 ![RAIM: detecting a corrupted navigation measurement](../output/figures/raim_detection.png){#fig:raim}

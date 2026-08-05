@@ -32,6 +32,32 @@ def _package_dir() -> Path:
     return Path(tomorrow_never_dies.__file__).resolve().parent
 
 
+def _project_root() -> Path:
+    return Path(tomorrow_never_dies.__file__).resolve().parents[2]
+
+
+def _contract() -> dict:
+    path = _project_root() / "manuscript" / "layer_contract.yaml"
+    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    assert isinstance(loaded, dict)
+    return loaded
+
+
+def _declared_pure_domain() -> tuple[str, ...]:
+    """The pure-domain module stems the contract actually declares.
+
+    Read from the YAML rather than from ``CONCEPTS`` on purpose: the contract
+    covers the six concepts **plus** ``scenario``, and deriving the scanned set
+    from ``CONCEPTS`` alone silently exempted ``scenario.py`` from the import
+    ban that three documents claim covers it.
+    """
+    modules = tuple(
+        Path(entry).stem for entry in _contract()["surfaces"]["pure_domain"]["modules"]
+    )
+    assert len(modules) == len(CONCEPTS) + 1, "contract must cover CONCEPTS + scenario"
+    return modules
+
+
 def test_concepts_match_shipped_modules() -> None:
     """``CONCEPTS`` is exactly the set of pure-domain modules on disk."""
     on_disk = {
@@ -51,9 +77,16 @@ def test_every_concept_module_is_importable_and_documented() -> None:
 
 
 def test_pure_core_imports_no_bond_api_or_infrastructure() -> None:
-    """The domain core must stay usable without the BOND protocol installed."""
+    """The domain core must stay usable without the BOND protocol installed.
+
+    Scans every module the layer contract declares pure-domain — the six
+    concepts *and* ``scenario.py`` — which is exactly what README, AGENTS.md
+    and ``layer_contract.yaml`` say this gate covers.
+    """
     banned = ("bond_api", "infrastructure", "matplotlib")
-    for name in CONCEPTS:
+    scanned = _declared_pure_domain()
+    assert "scenario" in scanned
+    for name in scanned:
         source = (_package_dir() / f"{name}.py").read_text(encoding="utf-8")
         for token in banned:
             assert f"import {token}" not in source, f"{name} imports {token}"
@@ -72,16 +105,28 @@ def test_layer_contract_declares_the_real_pure_domain_surface() -> None:
     The YAML is documentation that other tooling reads; without this it drifts
     the moment a module is added.
     """
-    contract_path = (
-        Path(tomorrow_never_dies.__file__).resolve().parents[2]
-        / "manuscript"
-        / "layer_contract.yaml"
+    assert set(_declared_pure_domain()) == set(CONCEPTS) | {"scenario"}
+
+
+def test_scenario_defers_integrity_availability_to_the_exported_predicate() -> None:
+    """One implementation of the published "integrity is available" claim.
+
+    ``scenario.py`` used to recompute ``levels.hpl <= alert_limit_m`` inline
+    while ``gnss_integrity.integrity_availability`` existed for exactly that.
+    Two copies of one claim agree until they don't, and a value test cannot
+    catch a duplicate that is still correct — so this checks the structure:
+    the predicate is called, and no inline alert-limit comparison remains.
+    """
+    source = (_package_dir() / "scenario.py").read_text(encoding="utf-8")
+    assert "integrity_availability(" in source, "scenario must call the predicate"
+    offenders = [
+        line.strip()
+        for line in source.splitlines()
+        if "alert_limit" in line and ("<=" in line or "<" in line or ">" in line)
+    ]
+    assert offenders == [], (
+        f"inline availability re-derivation in scenario: {offenders}"
     )
-    contract = yaml.safe_load(contract_path.read_text(encoding="utf-8"))
-    declared = {
-        Path(entry).stem for entry in contract["surfaces"]["pure_domain"]["modules"]
-    }
-    assert declared == set(CONCEPTS) | {"scenario"}
 
 
 def test_identity_constants() -> None:

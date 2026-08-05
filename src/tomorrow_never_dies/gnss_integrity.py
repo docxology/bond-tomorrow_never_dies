@@ -17,6 +17,11 @@ error. This module implements the baseline RAIM algorithm in full:
 * **Detection** — the RAIM test statistic, a threshold from the chi-square
   distribution at a target false-alarm rate, and the probability of detecting
   a measurement bias of a given size (noncentral chi-square, Poisson-series).
+  The parity projection is *not* norm-preserving on a single-satellite fault:
+  a bias ``b`` on satellite ``i`` lands with squared length ``P_ii b^2``,
+  where ``P_ii <= 1`` is that satellite's parity-projection factor
+  (:func:`parity_projection_factors`). Detection probability therefore depends
+  on *which* satellite is faulted, and the caller must say which.
 * **Protection levels** — horizontal and vertical protection levels (HPL/VPL)
   built from the worst-case fault slope and the missed-detection margin, and
   an integrity-availability check against an alert limit.
@@ -43,6 +48,7 @@ __all__ = [
     "normal_cdf",
     "normal_ppf",
     "parity_matrix",
+    "parity_projection_factors",
     "protection_levels",
     "raim_threshold",
     "slopes",
@@ -151,6 +157,23 @@ def parity_matrix(geometry: np.ndarray) -> np.ndarray:
     return u_matrix[:, 4:].T
 
 
+def parity_projection_factors(geometry: np.ndarray) -> tuple[float, ...]:
+    """Per-satellite parity-projection factors ``P_ii`` (each in ``[0, 1]``).
+
+    ``P = parity_matrix(geometry)`` has orthonormal *rows*, not orthonormal
+    columns, so ``P^T P`` is an orthogonal projector of rank ``n - 4`` and its
+    diagonal ``P_ii = ||P e_i||^2`` is strictly less than 1 for every
+    satellite. A bias ``b`` on satellite ``i`` therefore contributes only
+    ``P_ii b^2`` to the parity residual — the fraction of the fault the parity
+    space can see. The factors sum to the trace of the projector, ``n - 4``
+    (the degrees of freedom), which is the invariant
+    :func:`test_statistic` and :func:`detection_probability` are consistent
+    with and the reason a per-satellite factor is required rather than 1.
+    """
+    p_matrix = parity_matrix(geometry)
+    return tuple(float(v) for v in np.einsum("ij,ij->j", p_matrix, p_matrix))
+
+
 def least_squares_position(
     geometry: np.ndarray, measurements: np.ndarray
 ) -> np.ndarray:
@@ -173,7 +196,9 @@ def test_statistic(
     """Normalized RAIM test statistic ``||P (y - G x)||^2 / sigma^2``.
 
     Fault-free this is drawn from a chi-square distribution with
-    ``n - 4`` degrees of freedom; a measurement bias inflates it.
+    ``n - 4`` degrees of freedom; a measurement bias inflates it. A bias
+    ``b`` on satellite ``i`` shifts it by ``P_ii (b / sigma)^2`` — see
+    :func:`parity_projection_factors`, not by ``(b / sigma)^2``.
     """
     array = np.asarray(geometry, dtype=float)
     meas = np.asarray(measurements, dtype=float)
@@ -214,9 +239,8 @@ def slopes(geometry: np.ndarray) -> tuple[tuple[float, ...], tuple[float, ...]]:
     if array.ndim != 2 or array.shape[1] != 4 or n_rows <= 4:
         raise ValueError("geometry must be an n x 4 matrix with n > 4")
     a_matrix = np.linalg.pinv(array)
-    p_matrix = parity_matrix(array)
     # P_ii = diag(P^T P) = squared column norm of P.
-    p_norm2 = np.einsum("ij,ij->j", p_matrix, p_matrix)
+    p_norm2 = parity_projection_factors(array)
     horizontal = [
         float(
             math.sqrt(float(a_matrix[0, i]) ** 2 + float(a_matrix[1, i]) ** 2)
@@ -309,13 +333,22 @@ def detection_probability(
     *,
     dof: int,
     p_fa: float,
+    projection_factor: float,
     sigma: float = 3.0,
 ) -> float:
-    """Probability of detecting a measurement bias of ``bias_m`` meters.
+    """Probability of detecting a bias of ``bias_m`` m on one satellite.
 
-    The parity projection preserves the norm of a single-satellite bias, so
-    the test statistic under a fault ``b`` is noncentral chi-square with
-    noncentrality ``(b / sigma)^2``; ``P_d = 1 - F_nc(T_thr)``.
+    Under a bias ``b`` on satellite ``i`` the test statistic is noncentral
+    chi-square with ``dof`` degrees of freedom and noncentrality
+    ``P_ii (b / sigma)^2``, where ``P_ii = projection_factor`` is that
+    satellite's parity-projection factor from
+    :func:`parity_projection_factors`. ``P_d = 1 - F_nc(T_thr)``.
+
+    ``projection_factor`` is a **required** keyword on purpose: the parity
+    projection is not norm-preserving, so there is no geometry-independent
+    default, and a silent ``1.0`` would overstate detection probability for
+    every satellite. Pass ``parity_projection_factors(geometry)[i]``, or the
+    minimum over satellites for the worst-case (conservative) figure.
     """
     if isinstance(bias_m, bool) or not isinstance(bias_m, (int, float)) or bias_m < 0:
         raise ValueError("bias_m must be a non-negative number")
@@ -327,10 +360,16 @@ def detection_probability(
         or not 0.0 < p_fa < 1.0
     ):
         raise ValueError("p_fa must be in (0, 1)")
+    if (
+        not isinstance(projection_factor, (int, float))
+        or isinstance(projection_factor, bool)
+        or not 0.0 < projection_factor <= 1.0
+    ):
+        raise ValueError("projection_factor must be in (0, 1]")
     if isinstance(sigma, bool) or not isinstance(sigma, (int, float)) or sigma <= 0:
         raise ValueError("sigma must be a positive number")
     threshold = raim_threshold(dof, p_fa)
-    noncentrality = float(bias_m / sigma) ** 2
+    noncentrality = float(projection_factor) * float(bias_m / sigma) ** 2
     return float(1.0 - noncentral_chi2_cdf(threshold, dof, noncentrality))
 
 

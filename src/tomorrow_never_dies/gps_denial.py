@@ -5,12 +5,17 @@ jammed GPS receiver loses accuracy, and every system that depends on that
 navigation — ships, lanes, ports, aircraft — degrades in a cascade. This
 module quantifies the whole chain deterministically:
 
-* **Satellite geometry** — a deterministic Walker-style constellation; the
-  geometry matrix and the dilution-of-precision (GDOP/PDOP/HDOP/VDOP) that
-  scales ranging errors into position errors.
+* **Satellite geometry** — a Walker-delta constellation propagated as real
+  orbital geometry (circular orbits, evenly spaced right ascensions and
+  in-plane phasing) and projected onto a receiver's local sky; the geometry
+  matrix and the dilution-of-precision (GDOP/PDOP/HDOP/VDOP) that scales
+  ranging errors into position errors.
 * **Jamming** — jammer-to-noise ratio for a given jammer power, gain, and
   standoff distance; effective C/N0 degradation; UERE (user equivalent range
-  error) growth; and the resulting position error ``PDOP * UERE``.
+  error) growth; the resulting position error ``PDOP * UERE``; and
+  :func:`maintains_lock`, the carrier-lock check that says whether that
+  position error describes a receiver at all or is the formula extrapolated
+  past the point where a real one has stopped tracking.
 * **Navigation failure cascade** — a dependency network of maritime systems
   where direct GPS stress plus propagated stress from failed dependencies
   pushes nodes past a failure threshold, round by round, until a fixpoint.
@@ -26,7 +31,12 @@ from dataclasses import dataclass
 import numpy as np
 
 __all__ = [
+    "CNO_TRACKING_THRESHOLD_DBHZ",
+    "EARTH_RADIUS_M",
     "GPS_ALTITUDE_M",
+    "GPS_INCLINATION_DEG",
+    "RECEIVER_LAT_DEG",
+    "RECEIVER_LON_DEG",
     "CascadeResult",
     "Constellation",
     "DopResult",
@@ -35,6 +45,7 @@ __all__ = [
     "effective_cno_dbhz",
     "geometry_matrix",
     "jamming_to_noise_db",
+    "maintains_lock",
     "maritime_dependency_network",
     "position_error_meters",
     "simulate_navigation_cascade",
@@ -55,6 +66,19 @@ L1_FREQUENCY_HZ = 1575.42e6
 CA_BANDWIDTH_HZ = 2.046e6
 #: GPS constellation altitude, m.
 GPS_ALTITUDE_M = 20180000.0
+#: Mean Earth radius, m (spherical Earth — no oblateness model here).
+EARTH_RADIUS_M = 6378137.0
+#: GPS orbital-plane inclination, degrees.
+GPS_INCLINATION_DEG = 55.0
+#: Canonical receiver: the South China Sea theatre of *Tomorrow Never Dies*.
+RECEIVER_LAT_DEG = 15.0
+RECEIVER_LON_DEG = 115.0
+#: Carrier-lock threshold, dB-Hz. A C/A receiver holding carrier phase needs
+#: roughly this much C/N0; below it, it does not track badly, it stops
+#: tracking. :func:`uere_meters` has no notion of that, so its code-tracking
+#: term is an extrapolation below this line, not a prediction — see
+#: :func:`maintains_lock`.
+CNO_TRACKING_THRESHOLD_DBHZ = 25.0
 
 
 @dataclass(frozen=True)
@@ -132,29 +156,110 @@ def walker_constellation(
     n_sats: int = 24,
     n_planes: int = 6,
     *,
-    seed: int = 7,
+    phasing: int = 1,
+    inclination_deg: float = GPS_INCLINATION_DEG,
+    altitude_m: float = GPS_ALTITUDE_M,
+    receiver_lat_deg: float = RECEIVER_LAT_DEG,
+    receiver_lon_deg: float = RECEIVER_LON_DEG,
+    epoch_deg: float = 0.0,
 ) -> Constellation:
-    """Deterministic pseudo-Walker constellation on the local sky.
+    """Walker-delta constellation ``T/P/F`` seen from a receiver's local sky.
 
-    Each satellite receives a seeded azimuth/elevation draw such that the
-    whole constellation is reproducible from ``seed`` alone; elevation is
-    bounded below by 5 degrees so a mask filter is meaningful.
+    A real Walker pattern, not a random sky: ``n_sats`` satellites are split
+    evenly across ``n_planes`` circular orbits of the given inclination, plane
+    ``p`` takes right ascension ``360 p / n_planes``, and satellite ``s`` in
+    that plane takes argument of latitude
+    ``360 s / (n_sats / n_planes) + 360 F p / n_sats`` (the ``F = phasing``
+    inter-plane offset). Positions are computed in an Earth-centred frame at
+    ``epoch_deg`` of orbital phase and projected into the receiver's
+    east/north/up frame on a spherical Earth, so azimuth and elevation are
+    *derived* geometry.
+
+    Only the satellites geometrically above the horizon are returned, so a
+    typical mid-latitude receiver sees the realistic 8-12 of a 24-satellite
+    constellation rather than all of them. ``n_sats`` must divide evenly into
+    ``n_planes`` — an uneven split is not a Walker pattern.
+
+    No RNG is involved: the constellation is a pure function of its orbital
+    arguments.
     """
     if not isinstance(n_sats, int) or n_sats < 4:
         raise ValueError("n_sats must be an integer >= 4")
     if not isinstance(n_planes, int) or not 1 <= n_planes <= n_sats:
         raise ValueError("n_planes must be an integer in [1, n_sats]")
-    if not isinstance(seed, int) or seed < 0:
-        raise ValueError("seed must be a non-negative integer")
-    rng = np.random.default_rng(seed)
+    if n_sats % n_planes != 0:
+        raise ValueError("n_sats must be an integer multiple of n_planes")
+    if not isinstance(phasing, int) or isinstance(phasing, bool) or phasing < 0:
+        raise ValueError("phasing must be a non-negative integer")
+    for label, value in (
+        ("inclination_deg", inclination_deg),
+        ("receiver_lat_deg", receiver_lat_deg),
+        ("receiver_lon_deg", receiver_lon_deg),
+        ("epoch_deg", epoch_deg),
+    ):
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"{label} must be a number")
+    if not 0.0 <= inclination_deg <= 180.0:
+        raise ValueError("inclination_deg must be in [0, 180]")
+    if not -90.0 <= receiver_lat_deg <= 90.0:
+        raise ValueError("receiver_lat_deg must be in [-90, 90]")
+    if (
+        not isinstance(altitude_m, (int, float))
+        or isinstance(altitude_m, bool)
+        or altitude_m <= 0
+    ):
+        raise ValueError("altitude_m must be a positive number")
+
+    per_plane = n_sats // n_planes
+    radius = EARTH_RADIUS_M + float(altitude_m)
+    inclination = np.deg2rad(float(inclination_deg))
+    lat = np.deg2rad(float(receiver_lat_deg))
+    lon = np.deg2rad(float(receiver_lon_deg))
+
+    receiver = EARTH_RADIUS_M * np.asarray(
+        [np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)]
+    )
+    east = np.asarray([-np.sin(lon), np.cos(lon), 0.0])
+    north = np.asarray(
+        [-np.sin(lat) * np.cos(lon), -np.sin(lat) * np.sin(lon), np.cos(lat)]
+    )
+    up = receiver / EARTH_RADIUS_M
+
     satellites: list[Satellite] = []
-    for i in range(n_sats):
-        plane_phase = 360.0 * (i % n_planes) / n_planes
-        az = float((plane_phase + float(rng.uniform(0.0, 360.0))) % 360.0)
-        el = float(rng.uniform(5.0, 90.0))
-        satellites.append(
-            Satellite(name=f"PRN{i + 1:02d}", azimuth_deg=az, elevation_deg=el)
+    for index in range(n_sats):
+        plane, slot = divmod(index, per_plane)
+        raan = 2.0 * np.pi * plane / n_planes
+        arg_lat = (
+            2.0 * np.pi * slot / per_plane
+            + 2.0 * np.pi * phasing * plane / n_sats
+            + np.deg2rad(float(epoch_deg))
         )
+        position = radius * np.asarray(
+            [
+                np.cos(arg_lat) * np.cos(raan)
+                - np.sin(arg_lat) * np.cos(inclination) * np.sin(raan),
+                np.cos(arg_lat) * np.sin(raan)
+                + np.sin(arg_lat) * np.cos(inclination) * np.cos(raan),
+                np.sin(arg_lat) * np.sin(inclination),
+            ]
+        )
+        line_of_sight = position - receiver
+        e_comp = float(line_of_sight @ east)
+        n_comp = float(line_of_sight @ north)
+        u_comp = float(line_of_sight @ up)
+        elevation = float(np.rad2deg(np.arctan2(u_comp, np.hypot(e_comp, n_comp))))
+        if elevation < 0.0:
+            continue  # below the horizon: not in view at this epoch
+        azimuth = float(np.rad2deg(np.arctan2(e_comp, n_comp)) % 360.0)
+        satellites.append(
+            Satellite(
+                name=f"PRN{index + 1:02d}",
+                azimuth_deg=azimuth,
+                elevation_deg=min(elevation, 90.0),
+            )
+        )
+    if not satellites:
+        raise ValueError("no satellite is above the horizon for this configuration")
     return Constellation(satellites=tuple(satellites))
 
 
@@ -289,8 +394,32 @@ def uere_meters(
     )
 
 
+def maintains_lock(
+    cno_dbhz: float, *, threshold_dbhz: float = CNO_TRACKING_THRESHOLD_DBHZ
+) -> bool:
+    """Whether a receiver still tracks the signal at this effective C/N0.
+
+    The UERE model degrades smoothly forever, which a real receiver does not:
+    below the carrier-lock threshold it produces no solution at all. Anything
+    :func:`uere_meters` or :func:`position_error_meters` reports at a C/N0
+    failing this predicate is the formula extrapolated past its validity, and
+    must be labelled as such rather than quoted as a navigation error.
+    """
+    for label, value in (("cno_dbhz", cno_dbhz), ("threshold_dbhz", threshold_dbhz)):
+        if (
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not np.isfinite(value)
+        ):
+            raise ValueError(f"{label} must be a finite number")
+    return bool(cno_dbhz >= threshold_dbhz)
+
+
 def position_error_meters(pdop: float, cno_dbhz: float, **uere_kwargs: float) -> float:
-    """1-sigma position error ``PDOP * UERE`` at a given C/N0."""
+    """1-sigma position error ``PDOP * UERE`` at a given C/N0.
+
+    Physically meaningful only where :func:`maintains_lock` holds.
+    """
     if not isinstance(pdop, (int, float)) or isinstance(pdop, bool) or pdop <= 0:
         raise ValueError("pdop must be a positive number")
     return float(pdop * uere_meters(cno_dbhz, **uere_kwargs))

@@ -27,10 +27,15 @@ regeneration, so the setup can never describe a run that did not happen.
   target.
 * **Waveform**: an LFM chirp ({{WAVEFORM_BANDWIDTH_MHZ}} MHz bandwidth,
   {{WAVEFORM_PULSE_WIDTH_US}} µs, {{WAVEFORM_SAMPLE_RATE_MHZ}} MHz sampling) for
-  pulse compression, compared against an unmodulated pulse of equal peak
-  power and against the Barker-13 phase code.
-* **GPS**: a {{GPS_SATELLITES}}-satellite Walker-style constellation (mask
-  {{GPS_MASK_ANGLE_DEG}}°), a {{GPS_JAMMER_POWER_W}} W jammer at
+  pulse compression, compared against an unmodulated pulse of equal peak power
+  *and equal range resolution* ({{WAVEFORM_UNMOD_WIDTH_US}} µs) and against the
+  Barker-13 phase code.
+* **GPS**: a {{GPS_SATELLITES}}-satellite Walker-delta constellation in
+  {{GPS_PLANES}} planes at {{GPS_INCLINATION_DEG}}° inclination, seen from a
+  receiver at {{GPS_RECEIVER_LAT_DEG}}°N {{GPS_RECEIVER_LON_DEG}}°E in the
+  South China Sea (elevation mask {{GPS_MASK_ANGLE_DEG}}°, leaving
+  {{GPS_VISIBLE_SATS}} satellites in view at the modelled epoch), a
+  {{GPS_JAMMER_POWER_W}} W jammer at
   {{GPS_JAMMER_STANDOFF_KM}} km standoff, a clean C/N0 of {{GPS_CNO_CLEAN_DBHZ}}
   dB-Hz, and a maritime dependency network of {{GPS_NETWORK_SIZE}} systems.
 * **Integrity**: RAIM at a false-alarm rate of {{INTEGRITY_PFA}}, a

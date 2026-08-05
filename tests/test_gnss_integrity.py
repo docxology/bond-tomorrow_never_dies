@@ -15,6 +15,7 @@ from tomorrow_never_dies.gnss_integrity import (
     normal_cdf,
     normal_ppf,
     parity_matrix,
+    parity_projection_factors,
     protection_levels,
     raim_threshold,
     slopes,
@@ -25,9 +26,7 @@ from tomorrow_never_dies.gnss_integrity import (
 from tomorrow_never_dies.gps_denial import geometry_matrix, walker_constellation
 
 # Realistic geometry: the canonical constellation's visible satellites.
-_SCENARIO_GEOMETRY = geometry_matrix(
-    tuple(walker_constellation(24, 6, seed=7).visible(10.0))
-)
+_SCENARIO_GEOMETRY = geometry_matrix(tuple(walker_constellation(24, 6).visible(10.0)))
 
 
 def test_normal_cdf_quantile() -> None:
@@ -106,6 +105,40 @@ def test_test_statistic() -> None:
         raim_test_statistic(clean, geometry, position, sigma=0.0)
 
 
+def test_test_statistic_equals_the_assumed_noncentrality() -> None:
+    """Bind the statistic to the value ``detection_probability`` assumes.
+
+    A direction assertion (``t_bias > t_clean``) passes under *any*
+    noncentrality, which is how a wrong one survived: the code asserted
+    ``(b/sigma)^2`` while the parity projection delivers ``P_ii (b/sigma)^2``.
+    This test pins the value on every satellite, so the two can never disagree
+    again, and separately rejects the norm-preserving claim.
+    """
+    geometry = _SCENARIO_GEOMETRY
+    n_rows = geometry.shape[0]
+    position = np.zeros(4)
+    factors = parity_projection_factors(geometry)
+    bias, sigma = 20.0, 3.0
+    for index in range(n_rows):
+        measurements = np.zeros(n_rows, dtype=float)
+        measurements[index] = bias
+        statistic = raim_test_statistic(measurements, geometry, position, sigma=sigma)
+        assert statistic == pytest.approx(factors[index] * (bias / sigma) ** 2)
+        # The refuted claim: the projection does NOT preserve the bias norm.
+        assert statistic < (bias / sigma) ** 2
+
+
+def test_parity_projection_factors_are_a_rank_deficient_projection() -> None:
+    """``P_ii`` are in (0, 1) and sum to the degrees of freedom."""
+    geometry = _SCENARIO_GEOMETRY
+    factors = parity_projection_factors(geometry)
+    assert len(factors) == geometry.shape[0]
+    assert all(0.0 < f < 1.0 for f in factors)
+    assert sum(factors) == pytest.approx(geometry.shape[0] - 4)
+    with pytest.raises(ValueError):
+        parity_projection_factors(geometry[:4])
+
+
 def test_raim_threshold() -> None:
     more = raim_threshold(20, 1e-4)
     fewer = raim_threshold(10, 1e-4)
@@ -146,21 +179,53 @@ def test_protection_levels() -> None:
 def test_detection_probability() -> None:
     dof = _SCENARIO_GEOMETRY.shape[0] - 4
     p_fa = 1e-5
+    kwargs = {"dof": dof, "p_fa": p_fa, "projection_factor": 1.0, "sigma": 3.0}
     # Zero bias -> detection probability equals the false-alarm rate.
-    assert detection_probability(0.0, dof=dof, p_fa=p_fa, sigma=3.0) == pytest.approx(
-        p_fa, rel=1e-3
-    )
+    assert detection_probability(0.0, **kwargs) == pytest.approx(p_fa, rel=1e-3)
     # Monotone increasing in bias, approaching 1.
-    small = detection_probability(5.0, dof=dof, p_fa=p_fa, sigma=3.0)
-    large = detection_probability(30.0, dof=dof, p_fa=p_fa, sigma=3.0)
+    small = detection_probability(5.0, **kwargs)
+    large = detection_probability(60.0, **kwargs)
     assert large >= small
     assert large == pytest.approx(1.0, abs=1e-3)
     with pytest.raises(ValueError):
-        detection_probability(-1.0, dof=dof, p_fa=p_fa)
+        detection_probability(-1.0, dof=dof, p_fa=p_fa, projection_factor=1.0)
     with pytest.raises(ValueError):
-        detection_probability(5.0, dof=dof, p_fa=1.0)
+        detection_probability(5.0, dof=dof, p_fa=1.0, projection_factor=1.0)
     with pytest.raises(ValueError):
-        detection_probability(5.0, dof=dof, p_fa=p_fa, sigma=0.0)
+        detection_probability(5.0, dof=dof, p_fa=p_fa, projection_factor=1.0, sigma=0.0)
+    for bad in (0.0, 1.5, -0.2, True):
+        with pytest.raises(ValueError, match="projection_factor"):
+            detection_probability(5.0, dof=dof, p_fa=p_fa, projection_factor=bad)
+
+
+def test_detection_probability_uses_the_real_noncentrality() -> None:
+    """``P_d`` must be computed from ``P_ii (b/sigma)^2``, not ``(b/sigma)^2``.
+
+    The published figure was optimistically biased because the projection
+    factor was assumed to be 1. Here the probability is recomputed from the
+    module's own noncentral CDF at the noncentrality the *test statistic*
+    actually produces, and must match.
+    """
+    geometry = _SCENARIO_GEOMETRY
+    dof = geometry.shape[0] - 4
+    p_fa, sigma, bias = 1e-5, 3.0, 20.0
+    factors = parity_projection_factors(geometry)
+    threshold = raim_threshold(dof, p_fa)
+    for factor in (min(factors), max(factors)):
+        expected = 1.0 - noncentral_chi2_cdf(
+            threshold, dof, factor * (bias / sigma) ** 2
+        )
+        assert detection_probability(
+            bias, dof=dof, p_fa=p_fa, projection_factor=factor, sigma=sigma
+        ) == pytest.approx(expected)
+    # Assuming a norm-preserving projection strictly overstates detection.
+    optimistic = detection_probability(
+        bias, dof=dof, p_fa=p_fa, projection_factor=1.0, sigma=sigma
+    )
+    honest = detection_probability(
+        bias, dof=dof, p_fa=p_fa, projection_factor=min(factors), sigma=sigma
+    )
+    assert optimistic > honest
 
 
 def test_noncentral_chi2_matches_central_for_zero_nc() -> None:
@@ -198,13 +263,13 @@ def test_noncentral_chi2_rejects_bad_dof_and_noncentrality() -> None:
 
 def test_detection_probability_rejects_bad_dof() -> None:
     with pytest.raises(ValueError, match="dof must be an integer >= 1"):
-        detection_probability(20.0, dof=0, p_fa=1e-5)
+        detection_probability(20.0, dof=0, p_fa=1e-5, projection_factor=1.0)
 
 
 def test_detection_probability_is_monotone_in_bias() -> None:
     """A larger spoofing bias is never harder to catch."""
     probabilities = [
-        detection_probability(bias, dof=8, p_fa=1e-5, sigma=3.0)
+        detection_probability(bias, dof=8, p_fa=1e-5, projection_factor=0.8, sigma=3.0)
         for bias in (0.0, 5.0, 10.0, 20.0, 40.0)
     ]
     assert probabilities == sorted(probabilities)

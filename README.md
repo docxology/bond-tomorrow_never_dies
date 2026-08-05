@@ -22,12 +22,12 @@ Every module under `src/tomorrow_never_dies/`:
 
 | Module | What it computes |
 |---|---|
-| `media_manipulation.py` | Three-state belief diffusion on Watts–Strogatz / Barabási–Albert networks; media + social channels; greedy Kempe–Kleinberg–Tardos influence maximization; echo-chamber and amplification metrics |
+| `media_manipulation.py` | Two-state belief diffusion (susceptible / believing) on Watts–Strogatz / Barabási–Albert networks; media + social channels; greedy Kempe–Kleinberg–Tardos influence maximization; echo-chamber and amplification metrics |
 | `narrative_control.py` | Hegselmann–Krause bounded-confidence opinion dynamics with a media-injection term; polarization variance, bimodal split, media capture against an internal no-media baseline, and the critical broadcast reach found by bisection |
 | `stealth_detection.py` | Monostatic radar equation, square-law threshold from `P_fa`, Marcum-Q (numerically integrated) and Swerling-1 detection probabilities, ROC curves, detection range by binary search, RCS-reduction and fourth-root range-ratio metrics |
 | `radar_waveform.py` | LFM chirp, Barker-13 phase code, and unmodulated pulses; exact-convolution matched filter; processing gain, range resolution, peak sidelobe ratio, and compression-aware detection range |
-| `gps_denial.py` | Pseudo-Walker constellation, geometry matrix and GDOP/PDOP/HDOP/VDOP, jammer-to-noise ratio, C/N0 degradation, UERE and position error, and a maritime dependency-failure cascade run to fixpoint |
-| `gnss_integrity.py` | Scipy-free chi-square and noncentral chi-square CDFs and quantiles, SVD parity space, RAIM test statistic and threshold, per-satellite fault slopes, HPL/VPL protection levels, bias-detection probability |
+| `gps_denial.py` | Walker-delta constellation from real orbital geometry (planes, inclination, receiver-local az/el, horizon culling), geometry matrix and GDOP/PDOP/HDOP/VDOP, jammer-to-noise ratio, C/N0 degradation, UERE and position error, and a maritime dependency-failure cascade run to fixpoint |
+| `gnss_integrity.py` | Scipy-free chi-square and noncentral chi-square CDFs and quantiles, SVD parity space, RAIM test statistic and threshold, per-satellite fault slopes, HPL/VPL protection levels, per-satellite parity-projection factors, satellite-specific bias-detection probability |
 | `scenario.py` | The one canonical seeded run of all six models (plus the no-media counterfactual) that the mission outcome, the tokens, and the figures all read |
 | `mission.py` | The `bond_api` `MissionProvider` adapter and the gadget registry |
 | `manuscript_variables.py` | The `{{TOKEN}}` map — scenario inputs *and* results |
@@ -79,7 +79,9 @@ orchestrator consume it across the whole fleet. Depth goes inside the methods.
 
 * **Pure domain core** (the six concept modules + `scenario.py`): stdlib +
   numpy only — no `infrastructure.*`, no `bond_api`, no matplotlib. Enforced
-  by `tests/test_package_surface.py`, not by convention.
+  by `tests/test_package_surface.py`, not by convention: the scanned set is
+  read from `manuscript/layer_contract.yaml`, so all seven modules —
+  `scenario.py` included — are actually grepped.
 * **`mission.py`**: the single `bond_api` adapter + gadget registration.
 * **`scripts/`**: thin orchestrators, one per mission phase — no math.
 

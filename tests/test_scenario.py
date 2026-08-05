@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from tomorrow_never_dies.gnss_integrity import integrity_availability
+from tomorrow_never_dies.gps_denial import geometry_matrix, walker_constellation
 from tomorrow_never_dies.scenario import (
     SCENARIO_PARAMS,
     SCENARIO_SEED,
@@ -39,7 +41,54 @@ def test_scenario_keys_and_values() -> None:
     assert waveform["detection_range_m"] > waveform["unmodulated_range_m"]
     assert gps["cascade_fraction"] > 0.0
     assert integrity["available"] is True
-    assert 0.5 < integrity["detection_probability"] < 1.0
+    assert 0.0 < integrity["detection_probability"] < 1.0
+    # The reported figure is the worst-placed satellite, so it is never the
+    # flattering one; both are bounded by the projection factors they use.
+    assert integrity["detection_probability"] <= integrity["detection_probability_best"]
+    assert (
+        0.0
+        < integrity["projection_factor_worst"]
+        <= integrity["projection_factor_best"]
+        < 1.0
+    )
+
+
+def test_scenario_availability_matches_the_exported_predicate() -> None:
+    """``available`` must come from ``integrity_availability``, not a copy.
+
+    The scenario used to recompute ``hpl <= alert_limit`` inline, so two
+    implementations of one published claim could drift. This pins them
+    together, including at a limit that flips the answer.
+    """
+    integrity = run_carver_scenario()["integrity"]
+    geometry = geometry_matrix(
+        walker_constellation(
+            int(SCENARIO_PARAMS["gps"]["n_sats"]),
+            int(SCENARIO_PARAMS["gps"]["n_planes"]),
+            phasing=int(SCENARIO_PARAMS["gps"]["phasing"]),
+            inclination_deg=float(SCENARIO_PARAMS["gps"]["inclination_deg"]),
+            receiver_lat_deg=float(SCENARIO_PARAMS["gps"]["receiver_lat_deg"]),
+            receiver_lon_deg=float(SCENARIO_PARAMS["gps"]["receiver_lon_deg"]),
+        ).visible(float(SCENARIO_PARAMS["gps"]["mask_angle_deg"]))
+    )
+    params = SCENARIO_PARAMS["integrity"]
+    available, levels = integrity_availability(
+        geometry,
+        p_fa=float(params["p_fa"]),
+        p_md=float(params["p_md"]),
+        sigma=float(params["sigma_m"]),
+        alert_limit_m=float(params["alert_limit_m"]),
+    )
+    assert available is integrity["available"]
+    assert levels.hpl == pytest.approx(integrity["hpl_m"])
+    blocked, _ = integrity_availability(
+        geometry,
+        p_fa=float(params["p_fa"]),
+        p_md=float(params["p_md"]),
+        sigma=float(params["sigma_m"]),
+        alert_limit_m=levels.hpl / 2.0,
+    )
+    assert blocked is False  # the predicate can say no
 
 
 def test_scenario_deterministic() -> None:
@@ -93,11 +142,19 @@ def test_scenario_metrics() -> None:
         "gps_error_jammed_m",
         "gps_cascade_fraction",
         "gps_cascade_rounds",
+        "gps_visible_satellites",
+        "gps_cno_jammed_dbhz",
+        "gps_cno_tracking_threshold_dbhz",
+        "waveform_unmodulated_range_km",
+        "waveform_unmodulated_width_us",
         "integrity_dof",
         "integrity_threshold",
         "integrity_hpl_m",
         "integrity_vpl_m",
+        "integrity_projection_worst",
+        "integrity_projection_best",
         "integrity_detection_probability",
+        "integrity_detection_probability_best",
     ):
         assert key in metrics
         assert np.isfinite(metrics[key])
@@ -109,3 +166,19 @@ def test_scenario_metrics() -> None:
     assert metrics["gps_error_jammed_m"] > metrics["gps_error_clean_m"]
     # Pulse compression extends the stealth-hull detection range.
     assert metrics["waveform_range_km"] > metrics["stealth_range_km"]
+    # The improvement token is the ratio against the equal-resolution
+    # unmodulated pulse, not against the surveillance pulse: bind it to the
+    # baseline it is quoted against so the two cannot be conflated again.
+    assert metrics["waveform_improvement_pct"] == pytest.approx(
+        (metrics["waveform_range_km"] / metrics["waveform_unmodulated_range_km"] - 1.0)
+        * 100.0
+    )
+    assert metrics["waveform_unmodulated_width_us"] == pytest.approx(
+        1.0e6 / float(SCENARIO_PARAMS["waveform"]["bandwidth_hz"])
+    )
+    # A realistic single-epoch sky, not the whole constellation.
+    assert 8 <= metrics["gps_visible_satellites"] <= 12
+    # The canonical jamming case is BELOW carrier lock: the reported jammed
+    # position error is an extrapolation, and the scenario says so.
+    assert metrics["gps_cno_jammed_dbhz"] < metrics["gps_cno_tracking_threshold_dbhz"]
+    assert run_carver_scenario()["gps"]["tracks_under_jamming"] is False

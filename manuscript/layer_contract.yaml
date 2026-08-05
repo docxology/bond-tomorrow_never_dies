@@ -47,8 +47,10 @@ surfaces:
 
 enforced_by:
   description: >-
-    tests/test_package_surface.py — derives the pure-domain module list from
-    CONCEPTS (src/tomorrow_never_dies/__init__.py), greps each file for banned
-    imports, and asserts this file's pure_domain list matches. A module added
-    without being declared here fails the suite.
+    tests/test_package_surface.py — reads the pure_domain module list from
+    THIS file (all seven entries, scenario.py included), greps each of those
+    files for banned imports, and separately asserts the list equals CONCEPTS
+    (src/tomorrow_never_dies/__init__.py) plus scenario. A module added
+    without being declared here fails the suite, and a banned import added to
+    scenario.py fails it too.
   rule: "No infrastructure.*, bond_api, or matplotlib imports inside the pure_domain surface."

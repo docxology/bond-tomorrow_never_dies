@@ -21,12 +21,18 @@ from typing import Any
 import numpy as np
 
 from tomorrow_never_dies import __version__
-from tomorrow_never_dies.gnss_integrity import detection_probability, protection_levels
+from tomorrow_never_dies.gnss_integrity import (
+    detection_probability,
+    integrity_availability,
+    parity_projection_factors,
+)
 from tomorrow_never_dies.gps_denial import (
+    CNO_TRACKING_THRESHOLD_DBHZ,
     compute_dop,
     effective_cno_dbhz,
     geometry_matrix,
     jamming_to_noise_db,
+    maintains_lock,
     maritime_dependency_network,
     position_error_meters,
     simulate_navigation_cascade,
@@ -129,6 +135,10 @@ SCENARIO_PARAMS: dict[str, Any] = {
     "gps": {
         "n_sats": 24,
         "n_planes": 6,
+        "phasing": 1,
+        "inclination_deg": 55.0,
+        "receiver_lat_deg": 15.0,
+        "receiver_lon_deg": 115.0,
         "mask_angle_deg": 10.0,
         "cno_clean_dbhz": 45.0,
         "jammer_power_w": 1.0,
@@ -303,11 +313,18 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         bandwidth_hz=float(wfm["bandwidth_hz"]),
         sample_rate_hz=float(wfm["sample_rate_hz"]),
     )
+    # The compression baseline is an unmodulated pulse of the SAME RANGE
+    # RESOLUTION, i.e. duration 1/B — not the same duration. Matched filtering
+    # makes detection range depend on pulse energy alone, so an unmodulated
+    # pulse of equal *duration* has equal range and would show 0% improvement;
+    # what pulse compression actually buys is that resolution stops costing
+    # range. Its bandwidth is therefore B, and so is its noise bandwidth.
+    plain_width_s = 1.0 / float(wfm["bandwidth_hz"])
     plain = Waveform(
         kind="unmodulated",
-        pulse_width_s=float(wfm["pulse_width_s"]),
+        pulse_width_s=plain_width_s,
         bandwidth_hz=float(wfm["bandwidth_hz"]),
-        sample_rate_hz=1.0e6,
+        sample_rate_hz=float(wfm["sample_rate_hz"]),
     )
     barker = Waveform(
         kind="barker13",
@@ -343,13 +360,19 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         "barker_pslr_db": peak_sidelobe_ratio(barker),
         "detection_range_m": lfm_range,
         "unmodulated_range_m": unmodulated_range,
+        "unmodulated_pulse_width_s": plain_width_s,
         "improvement_pct": (lfm_range / unmodulated_range - 1.0) * 100.0,
     }
 
     # --- GPS denial: geometry, jamming, and the navigation cascade. ---
     gps = params["gps"]
     constellation = walker_constellation(
-        int(gps["n_sats"]), int(gps["n_planes"]), seed=seed
+        int(gps["n_sats"]),
+        int(gps["n_planes"]),
+        phasing=int(gps["phasing"]),
+        inclination_deg=float(gps["inclination_deg"]),
+        receiver_lat_deg=float(gps["receiver_lat_deg"]),
+        receiver_lon_deg=float(gps["receiver_lon_deg"]),
     )
     visible = constellation.visible(mask_angle_deg=float(gps["mask_angle_deg"]))
     dop = compute_dop(visible)
@@ -380,7 +403,11 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         "cno_clean_dbhz": cno_clean,
         "cno_jammed_dbhz": cno_jammed,
         "error_clean_m": error_clean,
+        # NOTE: physically meaningful only if `tracks_under_jamming` is true;
+        # otherwise it is the UERE formula extrapolated below carrier lock.
         "error_jammed_m": error_jammed,
+        "cno_tracking_threshold_dbhz": CNO_TRACKING_THRESHOLD_DBHZ,
+        "tracks_under_jamming": maintains_lock(cno_jammed),
         "cascade_fraction": cascade.total_fraction,
         "cascade_rounds": cascade.rounds,
         "cascade_failed": list(cascade.failed),
@@ -389,20 +416,37 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
     # --- GNSS integrity: RAIM detection and protection levels. ---
     integrity = params["integrity"]
     geometry = geometry_matrix(visible)
-    levels = protection_levels(
+    # Availability comes from the exported predicate, never re-derived inline:
+    # one implementation of the published "integrity is available" claim.
+    available, levels = integrity_availability(
         geometry,
         p_fa=float(integrity["p_fa"]),
         p_md=float(integrity["p_md"]),
         sigma=float(integrity["sigma_m"]),
+        alert_limit_m=float(integrity["alert_limit_m"]),
     )
     bias_probe = float(integrity["bias_probe_m"])
-    pd_bias = detection_probability(
+    # Detection probability is satellite-dependent: the parity projection sees
+    # only P_ii of a fault on satellite i. Report the worst-placed satellite
+    # (the conservative integrity figure, matching the worst-slope convention
+    # protection_levels already uses) alongside the best-placed one.
+    projection_factors = parity_projection_factors(geometry)
+    worst_factor = min(projection_factors)
+    best_factor = max(projection_factors)
+    pd_worst = detection_probability(
         bias_probe,
         dof=levels.dof,
         p_fa=float(integrity["p_fa"]),
+        projection_factor=worst_factor,
         sigma=float(integrity["sigma_m"]),
     )
-    available = levels.hpl <= float(integrity["alert_limit_m"])
+    pd_best = detection_probability(
+        bias_probe,
+        dof=levels.dof,
+        p_fa=float(integrity["p_fa"]),
+        projection_factor=best_factor,
+        sigma=float(integrity["sigma_m"]),
+    )
     integrity_block = {
         "visible_satellites": len(visible),
         "dof": levels.dof,
@@ -410,7 +454,10 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         "hpl_m": levels.hpl,
         "vpl_m": levels.vpl,
         "bias_probe_m": bias_probe,
-        "detection_probability": pd_bias,
+        "projection_factor_worst": worst_factor,
+        "projection_factor_best": best_factor,
+        "detection_probability": pd_worst,
+        "detection_probability_best": pd_best,
         "alert_limit_m": float(integrity["alert_limit_m"]),
         "available": available,
     }
@@ -464,9 +511,18 @@ def scenario_metrics(scenario: dict[str, Any] | None = None) -> dict[str, float]
         "waveform_barker_gain": float(waveform["barker_gain"]),
         "waveform_barker_pslr_db": float(waveform["barker_pslr_db"]),
         "waveform_range_km": float(waveform["detection_range_m"]) / 1000.0,
+        "waveform_unmodulated_range_km": (
+            float(waveform["unmodulated_range_m"]) / 1000.0
+        ),
+        "waveform_unmodulated_width_us": (
+            float(waveform["unmodulated_pulse_width_s"]) * 1.0e6
+        ),
         "waveform_improvement_pct": float(waveform["improvement_pct"]),
+        "gps_visible_satellites": float(gps["visible_satellites"]),
         "gps_pdop": float(gps["pdop"]),
         "gps_jnr_db": float(gps["jnr_db"]),
+        "gps_cno_jammed_dbhz": float(gps["cno_jammed_dbhz"]),
+        "gps_cno_tracking_threshold_dbhz": float(gps["cno_tracking_threshold_dbhz"]),
         "gps_error_clean_m": float(gps["error_clean_m"]),
         "gps_error_jammed_m": float(gps["error_jammed_m"]),
         "gps_cascade_fraction": float(gps["cascade_fraction"]),
@@ -475,5 +531,10 @@ def scenario_metrics(scenario: dict[str, Any] | None = None) -> dict[str, float]
         "integrity_threshold": float(integrity["threshold"]),
         "integrity_hpl_m": float(integrity["hpl_m"]),
         "integrity_vpl_m": float(integrity["vpl_m"]),
+        "integrity_projection_worst": float(integrity["projection_factor_worst"]),
+        "integrity_projection_best": float(integrity["projection_factor_best"]),
         "integrity_detection_probability": float(integrity["detection_probability"]),
+        "integrity_detection_probability_best": float(
+            integrity["detection_probability_best"]
+        ),
     }

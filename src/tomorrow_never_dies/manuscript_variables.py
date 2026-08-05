@@ -83,6 +83,10 @@ def _format_params() -> dict[str, str]:
         "WAVEFORM_PULSE_WIDTH_US": f"{float(waveform['pulse_width_s']) * 1.0e6:.0f}",
         "WAVEFORM_SAMPLE_RATE_MHZ": f"{float(waveform['sample_rate_hz']) / 1.0e6:.0f}",
         "GPS_SATELLITES": str(int(gps["n_sats"])),
+        "GPS_PLANES": str(int(gps["n_planes"])),
+        "GPS_INCLINATION_DEG": f"{float(gps['inclination_deg']):.0f}",
+        "GPS_RECEIVER_LAT_DEG": f"{float(gps['receiver_lat_deg']):.0f}",
+        "GPS_RECEIVER_LON_DEG": f"{float(gps['receiver_lon_deg']):.0f}",
         "GPS_MASK_ANGLE_DEG": f"{float(gps['mask_angle_deg']):.0f}",
         "GPS_JAMMER_POWER_W": f"{float(gps['jammer_power_w']):g}",
         "GPS_JAMMER_STANDOFF_KM": f"{float(gps['jammer_distance_m']) / 1000.0:.0f}",
@@ -122,9 +126,16 @@ def _format_metrics(metrics: dict[str, float]) -> dict[str, str]:
         "WAVEFORM_BARKER_GAIN": f"{metrics['waveform_barker_gain']:.0f}",
         "WAVEFORM_BARKER_PSLR_DB": f"{metrics['waveform_barker_pslr_db']:.1f}",
         "WAVEFORM_RANGE_KM": f"{metrics['waveform_range_km']:.1f}",
+        "WAVEFORM_UNMOD_RANGE_KM": f"{metrics['waveform_unmodulated_range_km']:.1f}",
+        "WAVEFORM_UNMOD_WIDTH_US": f"{metrics['waveform_unmodulated_width_us']:.2f}",
         "WAVEFORM_IMPROVEMENT_PCT": f"{metrics['waveform_improvement_pct']:.0f}",
+        "GPS_VISIBLE_SATS": str(int(metrics["gps_visible_satellites"])),
         "GPS_PDOP": f"{metrics['gps_pdop']:.2f}",
         "GPS_JNR_DB": f"{metrics['gps_jnr_db']:.1f}",
+        "GPS_CNO_JAMMED_DBHZ": f"{metrics['gps_cno_jammed_dbhz']:.1f}",
+        "GPS_LOCK_THRESHOLD_DBHZ": (
+            f"{metrics['gps_cno_tracking_threshold_dbhz']:.0f}"
+        ),
         "GPS_ERROR_CLEAN_M": f"{metrics['gps_error_clean_m']:.1f}",
         "GPS_ERROR_JAMMED_M": f"{metrics['gps_error_jammed_m']:.1f}",
         "GPS_CASCADE_FRACTION": f"{metrics['gps_cascade_fraction']:.3f}",
@@ -134,7 +145,12 @@ def _format_metrics(metrics: dict[str, float]) -> dict[str, str]:
         "RAIM_HPL_M": f"{metrics['integrity_hpl_m']:.1f}",
         "RAIM_VPL_M": f"{metrics['integrity_vpl_m']:.1f}",
         "RAIM_BIAS_M": f"{SCENARIO_PARAMS['integrity']['bias_probe_m']:.0f}",
+        "RAIM_PROJECTION_WORST": f"{metrics['integrity_projection_worst']:.2f}",
+        "RAIM_PROJECTION_BEST": f"{metrics['integrity_projection_best']:.2f}",
         "RAIM_PD": f"{100.0 * metrics['integrity_detection_probability']:.1f}",
+        "RAIM_PD_BEST": (
+            f"{100.0 * metrics['integrity_detection_probability_best']:.1f}"
+        ),
     }
 
 

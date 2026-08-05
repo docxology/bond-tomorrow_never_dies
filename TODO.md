@@ -46,8 +46,59 @@ record, not as a task list.
 
 ## Build record
 
-**Phase 5 — documentation truth + defect sweep (done).** Brought every doc and
-manuscript section into agreement with the phase-4 code; tokenized the last
+**Phase 6 — adversarial audit remediation (done).** An external audit found
+the phase-5 record below overstated its reach, and it was right. Fixed, with
+each repair mutation-tested (break the guarded thing, confirm the gate goes
+red):
+
+* `gnss_integrity.detection_probability` claimed the parity projection
+  preserves a single-satellite bias norm and used noncentrality `(b/σ)²`. It
+  does not: the correct value is `P_ii (b/σ)²` with `P_ii < 1`, and the
+  module's own `test_statistic` disagreed with it (39.81 vs the assumed
+  44.44). Added `parity_projection_factors`, made the factor a *required*
+  argument — no default that silently restores the optimistic number — and
+  the published RAIM detection probability fell from 65.9% to 25.2%
+  (worst-placed satellite; 54.2% best-placed), both now reported.
+* `walker_constellation` had no orbital-plane structure at all: azimuth was
+  `(plane_phase + uniform(0,360)) % 360`, which is just uniform, and
+  elevation was `uniform(5, 90)`, so 22 of 24 satellites cleared the mask.
+  Replaced with a real Walker-delta pattern propagated as orbital geometry
+  and projected onto a receiver's sky: 8 visible, PDOP 1.70 (was 1.21), RAIM
+  dof 4 (was 18). Every downstream GPS/RAIM number moved accordingly.
+* `waveform_detection_range` banked the full `B·T` compression gain on a
+  noise floor ten times narrower than the waveform occupied — ~10 dB counted
+  twice. The noise bandwidth now follows the waveform; the reported LFM range
+  is 108.2 km (was 192.3 km). The 373% improvement survives because the
+  baseline is now an equal-*resolution* unmodulated pulse, which is the only
+  comparison in which that number means anything.
+* The docs' "three belief states" were two: `UNAWARE` was never assigned in
+  any code path. Removed the dead state; docs, manuscript and `state_counts`
+  now say two.
+* The pure-domain import ban was documented as covering `scenario.py` but
+  iterated over `CONCEPTS`, which excludes it. The scanned list now comes
+  from `layer_contract.yaml`.
+* "Jamming pushes effective C/N0 negative" was false at the canonical
+  standoff (+10.5 dB-Hz). Corrected, and the figure now shades the
+  short-standoff region where the code-tracking model is extrapolated past a
+  receiver's lock threshold.
+* `scenario.py` re-derived integrity availability inline instead of calling
+  the exported `integrity_availability`; it now calls it, and a structural
+  gate rejects a re-introduced inline copy (a numerically identical duplicate
+  passes every value test, so a value test could not have caught this).
+* `tests/test_figures.py` reached 100% coverage of `figures.py` while
+  asserting only that six PNGs exceeded 1000 bytes. Figures are now built by
+  pure `build_*` functions and the tests compare the plotted series against
+  the domain modules; swapping two datasets or plotting the flattering RAIM
+  curve now fails.
+* `references.bib` was entirely uncited and bound to nothing. `SYNTAX.md` no
+  longer instructs a citation convention nothing follows, and
+  `tests/test_references.py` binds the `.bib` to `99_references.md`
+  entry-for-entry.
+
+**Phase 5 — documentation truth + defect sweep (done, but overstated).** The
+original claim here — "brought every doc and manuscript section into agreement
+with the phase-4 code" — was not true: the two severe defects and four lesser
+ones listed under phase 6 above survived it. What it actually did: tokenized the last
 hand-authored numbers (Barker-13 sidelobe floor, stealth range loss, campaign
 lift) and all scenario *inputs* in the experimental-setup section; added
 `tests/test_package_surface.py` (concept-list drift, import purity, no

@@ -10,12 +10,14 @@ import numpy as np
 import pytest
 
 from tomorrow_never_dies.gps_denial import (
+    CNO_TRACKING_THRESHOLD_DBHZ,
     Constellation,
     Satellite,
     compute_dop,
     effective_cno_dbhz,
     geometry_matrix,
     jamming_to_noise_db,
+    maintains_lock,
     maritime_dependency_network,
     position_error_meters,
     simulate_navigation_cascade,
@@ -26,11 +28,55 @@ from tomorrow_never_dies.gps_denial import (
 
 
 def test_walker_constellation_deterministic() -> None:
-    a = walker_constellation(24, 6, seed=7)
-    b = walker_constellation(24, 6, seed=7)
+    a = walker_constellation(24, 6)
+    b = walker_constellation(24, 6)
     assert a.satellites == b.satellites
-    assert len(a.satellites) == 24
-    assert all(5.0 <= sat.elevation_deg <= 90.0 for sat in a.satellites)
+    # Only the satellites geometrically in view are returned: a receiver never
+    # sees the whole constellation, and a model that says it does is wrong.
+    assert 0 < len(a.satellites) < 24
+    assert all(0.0 <= sat.elevation_deg <= 90.0 for sat in a.satellites)
+
+
+def test_walker_constellation_has_real_plane_structure() -> None:
+    """The orbital planes must actually be there, not named.
+
+    Three checks the previous random-sky implementation failed. (1) Realistic
+    visibility: a 24/6 Walker seen from a mid-latitude receiver puts 8-12
+    satellites above a 10-degree mask, not 22 of 24. (2) Discrete rotational
+    symmetry: with zero inter-plane phasing the pattern is invariant under a
+    ``360 / n_planes`` rotation, so moving the receiver's longitude by exactly
+    one plane spacing must reproduce the *same* local-sky elevations — an
+    identity that holds only if satellites sit in evenly spaced planes, and
+    that independent uniform azimuth draws would never satisfy. (3) Elevation
+    is concentrated low on the sky, the opposite of a uniform draw.
+    """
+    assert 8 <= len(walker_constellation(24, 6).visible(10.0)) <= 12
+
+    plane_spacing = 360.0 / 6.0
+    base = sorted(
+        round(s.elevation_deg, 6)
+        for s in walker_constellation(24, 6, phasing=0).satellites
+    )
+    rotated = sorted(
+        round(s.elevation_deg, 6)
+        for s in walker_constellation(
+            24, 6, phasing=0, receiver_lon_deg=115.0 + plane_spacing
+        ).satellites
+    )
+    assert base == rotated, "no plane structure: sky is not rotationally periodic"
+    # Control: a half-spacing rotation is NOT a symmetry, so the identity above
+    # is a real constraint rather than something every sky satisfies.
+    off_axis = sorted(
+        round(s.elevation_deg, 6)
+        for s in walker_constellation(
+            24, 6, phasing=0, receiver_lon_deg=115.0 + plane_spacing / 2.0
+        ).satellites
+    )
+    assert off_axis != base
+
+    equatorial = walker_constellation(24, 6, receiver_lat_deg=0.0).satellites
+    below_45 = sum(1 for s in equatorial if s.elevation_deg < 45.0)
+    assert below_45 > len(equatorial) / 2
 
 
 def test_walker_constellation_errors() -> None:
@@ -40,8 +86,26 @@ def test_walker_constellation_errors() -> None:
         walker_constellation(24, 0)
     with pytest.raises(ValueError):
         walker_constellation(24, 25)
-    with pytest.raises(ValueError):
-        walker_constellation(24, 6, seed=-1)
+    with pytest.raises(ValueError, match="integer multiple"):
+        walker_constellation(24, 5)
+    with pytest.raises(ValueError, match="phasing"):
+        walker_constellation(24, 6, phasing=-1)
+    with pytest.raises(ValueError, match="inclination_deg must be a number"):
+        walker_constellation(24, 6, inclination_deg=True)
+    with pytest.raises(ValueError, match=r"\[0, 180\]"):
+        walker_constellation(24, 6, inclination_deg=200.0)
+    with pytest.raises(ValueError, match=r"\[-90, 90\]"):
+        walker_constellation(24, 6, receiver_lat_deg=95.0)
+    with pytest.raises(ValueError, match="altitude_m must be a positive number"):
+        walker_constellation(24, 6, altitude_m=0.0)
+
+
+def test_walker_constellation_no_satellite_in_view() -> None:
+    """A pathological geometry fails loudly rather than returning an empty sky."""
+    with pytest.raises(ValueError, match="above the horizon"):
+        walker_constellation(
+            4, 1, inclination_deg=0.0, receiver_lat_deg=90.0, altitude_m=1.0e5
+        )
 
 
 def test_visible_filter() -> None:
@@ -85,7 +149,7 @@ def test_geometry_matrix() -> None:
 
 
 def test_compute_dop() -> None:
-    sats = tuple(walker_constellation(24, 6, seed=7).visible(10.0))
+    sats = tuple(walker_constellation(24, 6).visible(10.0))
     dop = compute_dop(sats)
     assert dop.gdop > 0 and dop.pdop > 0 and dop.hdop > 0 and dop.vdop > 0
     assert dop.pdop**2 == pytest.approx(dop.hdop**2 + dop.vdop**2)
@@ -134,6 +198,26 @@ def test_uere() -> None:
         uere_meters(float("inf"))
     with pytest.raises(ValueError):
         uere_meters(45.0, iono_m=-1.0)
+
+
+def test_maintains_lock_marks_the_extrapolation_boundary() -> None:
+    """The UERE model must not be quoted where a receiver has lost lock.
+
+    ``uere_meters`` degrades smoothly forever; a receiver does not. This
+    predicate is what separates a reported accuracy from an extrapolation,
+    and the canonical jamming case falls on the extrapolated side.
+    """
+    assert maintains_lock(45.0) is True
+    assert maintains_lock(CNO_TRACKING_THRESHOLD_DBHZ) is True
+    assert maintains_lock(CNO_TRACKING_THRESHOLD_DBHZ - 0.1) is False
+    assert maintains_lock(-5.0) is False
+    assert maintains_lock(20.0, threshold_dbhz=15.0) is True
+    # The absurd regime the smooth formula happily reports on.
+    assert uere_meters(-29.5) > 1000.0
+    assert maintains_lock(-29.5) is False
+    for bad in (float("nan"), float("inf"), True):
+        with pytest.raises(ValueError):
+            maintains_lock(bad)
 
 
 def test_position_error() -> None:
@@ -229,7 +313,7 @@ def test_satellite_rejects_non_numeric_angles() -> None:
 
 
 def test_visible_rejects_non_numeric_mask() -> None:
-    constellation = walker_constellation(8, 2, seed=7)
+    constellation = walker_constellation(8, 2)
     with pytest.raises(ValueError, match="mask_angle_deg must be a number"):
         constellation.visible(mask_angle_deg=True)
     with pytest.raises(ValueError, match=r"\[0, 90\]"):
