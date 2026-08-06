@@ -300,12 +300,15 @@ def detection_range(
     p_d_target: float = 0.9,
     config: RadarConfig | None = None,
     max_range_m: float = 2.0e6,
+    fluctuation: str = "swerling0",
 ) -> float:
     """Range (m) at which a target of the given RCS reaches ``p_d_target``.
 
     Detection probability is monotonically decreasing in range, so a
     deterministic binary search on the radar equation converges to the
-    detection range.
+    detection range. ``fluctuation`` selects the target fluctuation model
+    (``swerling0`` / ``swerling1``), so both a nonfluctuating and a Rayleigh
+    target can be ranged; a fluctuating hull is detected at shorter range.
     """
     cfg = config or RadarConfig()
     if (
@@ -329,7 +332,10 @@ def detection_range(
 
     def prob_at(r: float) -> float:
         return detection_probability(
-            snr_at_range(r, rcs_sqm, config=cfg), p_fa=p_fa, pulses=cfg.pulses
+            snr_at_range(r, rcs_sqm, config=cfg),
+            p_fa=p_fa,
+            pulses=cfg.pulses,
+            fluctuation=fluctuation,
         )
 
     if prob_at(max_range_m) > p_d_target:

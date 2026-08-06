@@ -91,7 +91,10 @@ See [`docs/architecture.md`](docs/architecture.md) for the full map and
 ## Testing & gates
 
 * **≥90% line + branch** coverage on `src/` is the enforced floor
-  (`--cov-fail-under=90`); every validation branch is exercised.
+  (`--cov-fail-under=90`); every `raise ValueError` validation guard in
+  `src/` is exercised by a `pytest.raises` test (a small number of defensive
+  numerical-stabilisation branches that only fire on pathological input are
+  documented in `TODO.md`, not chased).
 * **Zero mocks** — real data and real computation only.
 * **`ruff` + `mypy`** clean on `src/` and `scripts/`.
 * **No hand-authored numbers** in the manuscript's claim-bearing sections —

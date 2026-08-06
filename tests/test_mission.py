@@ -189,3 +189,25 @@ def test_serialization_round_trip() -> None:
     outcome = provider.execute(provider.plan(provider.brief()))
     restored = from_dict(to_dict(outcome))
     assert restored == outcome
+
+
+def test_debrief_tolerates_outcome_without_stealth_step() -> None:
+    """A plan with no stealth step must not poison the debrief (V3 branch).
+
+    ``debrief`` guards on the presence of a ``stealth`` per-step block before
+    appending the RCS lesson; an outcome that never executed one (e.g. a
+    reduced plan) must skip that lesson instead of crashing or emitting a
+    generic 0 dB / 1.0 ratio line.
+    """
+    from dataclasses import replace
+
+    provider = MissionProvider()
+    plan = provider.plan(provider.brief())
+    no_stealth = replace(
+        plan, steps=tuple(step for step in plan.steps if step.name != "stealth")
+    )
+    outcome = provider.execute(no_stealth)
+    assert "stealth" not in outcome.results["per_step"]
+    debrief = provider.debrief(outcome)
+    assert not any("RCS reduction cuts detection range" in lesson for lesson in debrief.lessons)
+    assert any("belief share" in lesson for lesson in debrief.lessons)

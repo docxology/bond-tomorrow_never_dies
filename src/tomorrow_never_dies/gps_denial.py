@@ -471,15 +471,21 @@ def simulate_navigation_cascade(
     fail_threshold: float = 0.7,
     propagation_factor: float = 0.5,
     max_rounds: int = 30,
+    edge_weights: dict[tuple[str, str], float] | None = None,
 ) -> CascadeResult:
     """Simulate the GPS-denial failure cascade to its fixpoint.
 
     A node's stress starts at ``gps_weights[v] * jamming_strength`` (direct
     GPS dependence). Each round, every node whose stress meets
     ``fail_threshold`` fails; a newly failed node ``u`` adds
-    ``propagation_factor * gps_weights[v] * jamming_strength`` stress to each
-    of its dependents. Rounds repeat until no new failures occur or
-    ``max_rounds`` is exhausted.
+    ``factor * gps_weights[v] * jamming_strength`` stress to each of its
+    dependents, where ``factor`` is the per-edge coupling ``edge_weights[(u,
+    v)]`` when given, else the scalar ``propagation_factor``. Rounds repeat
+    until no new failures occur or ``max_rounds`` is exhausted. The default
+    (``edge_weights=None``) is byte-for-byte the old single-scalar model, so
+    every published number is unchanged; per-edge weights let the maritime
+    graph distinguish "depends on GPS for navigation" from "depends on GPS for
+    scheduling", which is exactly the distinction the film's plot turns on.
 
     Returns:
         :class:`CascadeResult` — failed systems (deterministic order), the
@@ -505,6 +511,20 @@ def simulate_navigation_cascade(
                 raise ValueError(
                     f"dependencies[{source!r}] names unknown node {dependent!r} "
                     "(every dependent must have a gps_weights entry)"
+                )
+    if edge_weights is not None:
+        for (source, dependent), weight in edge_weights.items():
+            if source not in gps_weights or dependent not in gps_weights:
+                raise ValueError(
+                    "edge_weights keys must name nodes with a gps_weights entry"
+                )
+            if not isinstance(weight, (int, float)) or isinstance(weight, bool):
+                raise ValueError(
+                    f"edge_weights[{source!r} -> {dependent!r}] must be a number"
+                )
+            if not 0.0 <= float(weight) <= 1.0:
+                raise ValueError(
+                    f"edge_weights[{source!r} -> {dependent!r}] must be in [0, 1]"
                 )
     for label, value in (
         ("jamming_strength", jamming_strength),
@@ -541,8 +561,13 @@ def simulate_navigation_cascade(
         for source in newly:
             for dependent in dependencies.get(source, ()):
                 if dependent not in failed:
+                    factor = (
+                        propagation_factor
+                        if edge_weights is None
+                        else edge_weights.get((source, dependent), propagation_factor)
+                    )
                     stress[dependent] += (
-                        propagation_factor * gps_weights[dependent] * jamming_strength
+                        factor * gps_weights[dependent] * jamming_strength
                     )
     return CascadeResult(
         failed=tuple(sorted(failed)),

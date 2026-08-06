@@ -32,6 +32,10 @@ A {{STEALTH_RCS_REDUCTION_DB}} dB RCS reduction (from a reference target to a
 stealth hull) cuts the detection range from {{STEALTH_REF_RANGE_KM}} km to
 {{STEALTH_RANGE_KM}} km — a range ratio of {{STEALTH_RANGE_RATIO}}, a
 {{STEALTH_RANGE_LOSS_PCT}}% loss, and exactly the fourth-root radar law.
+Reporting the same hull as a Rayleigh (Swerling-1) fluctuating target — the
+realistic case for a ship in a sea-clutter background — leaves it detectable
+only out to {{STEALTH_SWERLING1_KM}} km: a fading target must beat the detection
+threshold across the whole integration dwell rather than at a single peak.
 @fig:stealth shows the detection probability curves.
 
 ![Detection probability vs range: reference target and stealth hull](../output/figures/stealth_detection.png){#fig:stealth}
@@ -56,8 +60,18 @@ what it buys is that resolution stops costing range.
 Barker-13 code. The Barker code buys far less gain ({{WAVEFORM_BARKER_GAIN}}x
 against the chirp's {{WAVEFORM_GAIN_DB}} dB) but pays for it with a much cleaner
 range response: a measured {{WAVEFORM_BARKER_PSLR_DB}} dB sidelobe floor against
-the chirp's {{WAVEFORM_PSLR_DB}} dB. That is the design trade — reach against the
-risk that a sidelobe of a bright return masks a dim one beside it.
+the chirp's {{WAVEFORM_PSLR_DB}} dB. The reach-vs-sidelobes tension has to be
+stated carefully, because the two range claims are not comparable the way they
+first appear: at equal peak power and equal pulse duration the Barker code
+reaches the *same* {{WAVEFORM_BARKER_RANGE_KM}} km as the chirp, because
+matched-filter detection range depends on pulse energy alone and the code's
+lower gain ({{WAVEFORM_BARKER_GAIN}}x) is offset by its proportionally narrower
+effective bandwidth. What the Barker code actually gives up is resolution — its
+effective bandwidth resolves range only to {{WAVEFORM_BARKER_RES_M}} m against
+the chirp's {{WAVEFORM_RES_M}} m — and what it buys in return is that cleaner
+{{WAVEFORM_BARKER_PSLR_DB}} dB sidelobe floor: a lower chance that a bright
+return's sidelobe masks a dim return beside it. The trade is therefore
+resolution and clutter-masking performance, not reach.
 
 ![Pulse compression: matched-filter range response for LFM and Barker-13](../output/figures/waveform_pulse_compression.png){#fig:waveform}
 

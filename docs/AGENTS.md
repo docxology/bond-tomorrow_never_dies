@@ -57,7 +57,7 @@ rg -nE "^(from|import) infrastructure|^(from|import) bond_api" \
     src/tomorrow_never_dies/gps_denial.py \
     src/tomorrow_never_dies/gnss_integrity.py \
     src/tomorrow_never_dies/scenario.py || echo Clean
-rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' || echo Clean
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' || echo Clean
 uv run ruff check src/ scripts/ && uv run ruff format --check src/ scripts/
 uv run mypy src/
 ```

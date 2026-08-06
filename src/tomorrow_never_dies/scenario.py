@@ -289,12 +289,26 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         p_d_target=float(stealth["p_d_target"]),
         config=radar,
         max_range_m=float(stealth["max_range_m"]),
+        fluctuation="swerling0",
+    )
+    # The same hull as a Rayleigh (Swerling-1) target: fluctuation costs
+    # range, because a fading target must exceed the threshold over an
+    # integration dwell rather than only at its peak. Both figures are
+    # reported so the published model is never silently either one.
+    stealth_range_swerling1 = detection_range(
+        float(stealth["stealth_rcs_sqm"]),
+        p_fa=float(stealth["pfa"]),
+        p_d_target=float(stealth["p_d_target"]),
+        config=radar,
+        max_range_m=float(stealth["max_range_m"]),
+        fluctuation="swerling1",
     )
     stealth_block = {
         "reference_rcs_sqm": float(stealth["reference_rcs_sqm"]),
         "stealth_rcs_sqm": float(stealth["stealth_rcs_sqm"]),
         "reference_range_m": ref_range,
         "stealth_range_m": stealth_range,
+        "stealth_range_swerling1_m": stealth_range_swerling1,
         "rcs_reduction_db": rcs_reduction_db(
             float(stealth["reference_rcs_sqm"]), float(stealth["stealth_rcs_sqm"])
         ),
@@ -349,6 +363,20 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         p_d_target=float(wfm["p_d_target"]),
         max_range_m=float(wfm["max_range_m"]),
     )
+    # The Barker-13 rendering of the reach-vs-sidelobes trade, made explicit
+    # on the range axis. Matched-filter range depends on pulse energy alone,
+    # so at equal peak power and equal duration Barker reaches the SAME range
+    # as the chirp; what its low gain (13) and narrow effective bandwidth cost
+    # is range RESOLUTION, and what its clean autocorrelation buys is the
+    # lower ~9 dB sidelobe floor.
+    barker_range = waveform_detection_range(
+        float(stealth["stealth_rcs_sqm"]),
+        barker,
+        config=radar,
+        p_fa=float(wfm["pfa"]),
+        p_d_target=float(wfm["p_d_target"]),
+        max_range_m=float(wfm["max_range_m"]),
+    )
     waveform_block = {
         "kind": str(wfm["kind"]),
         "bandwidth_mhz": waveform_bandwidth(chirp) / 1.0e6,
@@ -358,6 +386,8 @@ def run_carver_scenario(*, seed: int = SCENARIO_SEED) -> dict[str, Any]:
         "pslr_db": peak_sidelobe_ratio(chirp),
         "barker_gain": processing_gain(barker),
         "barker_pslr_db": peak_sidelobe_ratio(barker),
+        "barker_range_resolution_m": range_resolution(barker),
+        "barker_detection_range_m": barker_range,
         "detection_range_m": lfm_range,
         "unmodulated_range_m": unmodulated_range,
         "unmodulated_pulse_width_s": plain_width_s,
@@ -501,6 +531,7 @@ def scenario_metrics(scenario: dict[str, Any] | None = None) -> dict[str, float]
         "narrative_critical_reach": float(narrative["critical_reach"]),
         "stealth_ref_range_km": float(stealth["reference_range_m"]) / 1000.0,
         "stealth_range_km": float(stealth["stealth_range_m"]) / 1000.0,
+        "stealth_swerling1_km": float(stealth["stealth_range_swerling1_m"]) / 1000.0,
         "stealth_rcs_reduction_db": float(stealth["rcs_reduction_db"]),
         "stealth_range_ratio": float(stealth["range_ratio"]),
         "stealth_range_loss_pct": (1.0 - float(stealth["range_ratio"])) * 100.0,
@@ -510,6 +541,9 @@ def scenario_metrics(scenario: dict[str, Any] | None = None) -> dict[str, float]
         "waveform_pslr_db": float(waveform["pslr_db"]),
         "waveform_barker_gain": float(waveform["barker_gain"]),
         "waveform_barker_pslr_db": float(waveform["barker_pslr_db"]),
+        "waveform_barker_range_km": float(waveform["barker_detection_range_m"])
+        / 1000.0,
+        "waveform_barker_resolution_m": float(waveform["barker_range_resolution_m"]),
         "waveform_range_km": float(waveform["detection_range_m"]) / 1000.0,
         "waveform_unmodulated_range_km": (
             float(waveform["unmodulated_range_m"]) / 1000.0

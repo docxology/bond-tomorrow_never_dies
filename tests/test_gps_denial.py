@@ -318,3 +318,56 @@ def test_visible_rejects_non_numeric_mask() -> None:
         constellation.visible(mask_angle_deg=True)
     with pytest.raises(ValueError, match=r"\[0, 90\]"):
         constellation.visible(mask_angle_deg=120.0)
+
+
+def test_cascade_rejects_weight_that_is_not_a_number() -> None:
+    """gps_weights entry that is not numeric must raise — V2 coverage."""
+    deps = {"a": ("b",), "b": ()}
+    with pytest.raises(ValueError, match="must be a number"):
+        simulate_navigation_cascade(deps, {"a": "high", "b": 0.5})
+
+
+def test_cascade_rejects_weight_outside_unit_interval() -> None:
+    """gps_weights entry outside [0, 1] must raise — V2 coverage."""
+    deps = {"a": ("b",), "b": ()}
+    with pytest.raises(ValueError, match=r"in \[0, 1\]"):
+        simulate_navigation_cascade(deps, {"a": 1.5, "b": 0.5})
+
+
+def test_cascade_rejects_bad_edge_weight() -> None:
+    deps = {"a": ("b",), "b": ()}
+    with pytest.raises(ValueError, match=r"in \[0, 1\]"):
+        simulate_navigation_cascade(
+            deps, {"a": 0.5, "b": 0.0}, edge_weights={("a", "b"): 2.0}
+        )
+    with pytest.raises(ValueError, match="gps_weights entry"):
+        simulate_navigation_cascade(
+            deps, {"a": 0.5, "b": 0.0}, edge_weights={("a", "ghost"): 1.0}
+        )
+    with pytest.raises(ValueError, match="edge_weights.*must be a number"):
+        simulate_navigation_cascade(
+            deps, {"a": 0.5, "b": 0.0}, edge_weights={("a", "b"): True}
+        )
+
+
+def test_per_edge_coupling_changes_cascade_while_default_is_unchanged() -> None:
+    """Same topology, different edge weights -> different cascade fractions.
+
+    The default (no ``edge_weights``) must be byte-identical to the old scalar
+    model so every published number is unchanged.
+    """
+    deps, weights = maritime_dependency_network()
+    common = dict(
+        jamming_strength=0.85,
+        fail_threshold=0.7,
+        propagation_factor=0.5,
+    )
+    base = simulate_navigation_cascade(deps, weights, **common)
+    explicit_none = simulate_navigation_cascade(deps, weights, **common, edge_weights=None)
+    assert explicit_none == base  # default equals explicit None: unchanged
+
+    edge_hi = {(s, d): 1.0 for s, ds in deps.items() for d in ds}
+    edge_lo = {(s, d): 0.0 for s, ds in deps.items() for d in ds}
+    hi = simulate_navigation_cascade(deps, weights, **common, edge_weights=edge_hi)
+    lo = simulate_navigation_cascade(deps, weights, **common, edge_weights=edge_lo)
+    assert hi.total_fraction > lo.total_fraction

@@ -414,7 +414,7 @@ def influence_maximization(
     selected: list[int] = []
     evaluations = 0
     for _ in range(k):
-        best_node: int | None = None
+        best_node = -1
         best_share = -1.0
         for candidate in range(n_nodes):
             if candidate in selected:
@@ -432,8 +432,10 @@ def influence_maximization(
             if trial.belief_share[-1] > best_share:
                 best_share = trial.belief_share[-1]
                 best_node = candidate
-        if best_node is None:
-            break
+        # best_node is always set here: best_share starts at -1 and a valid
+        # candidate (share >= 0) strictly beats it, and k <= n_nodes guarantees
+        # at least one non-selected candidate each iteration. A dead
+        # 'if best_node is None: break' fallback used to sit here.
         selected.append(best_node)
 
     final = simulate_disinformation(

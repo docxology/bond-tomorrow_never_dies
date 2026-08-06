@@ -260,3 +260,18 @@ def test_every_generated_token_is_used_by_the_manuscript(project_root: Path) -> 
     # token must earn its place by appearing in the prose.
     orphans = sorted(set(variables) - used)
     assert orphans == []
+
+
+def test_generate_variables_rejects_missing_paper_mapping() -> None:
+    """config.yaml lacking a ``paper`` mapping must raise — V2 coverage."""
+    from pathlib import Path as _P
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = _P(tmp)
+        (root / "manuscript").mkdir()
+        (root / "manuscript" / "config.yaml").write_text(
+            "paper: not-a-mapping\nauthors: []\n", encoding="utf-8"
+        )
+        with pytest.raises(ValueError, match="paper"):
+            generate_variables(root)

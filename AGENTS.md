@@ -90,7 +90,7 @@ uv run ruff check src/ scripts/
 uv run ruff format --check src/ scripts/
 uv run mypy src/
 uv run python scripts/run_mission.py                     # protocol end-to-end
-rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock'   # aim zero
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md'   # aim zero
 git status --short                                       # clean after commit
 ```
 

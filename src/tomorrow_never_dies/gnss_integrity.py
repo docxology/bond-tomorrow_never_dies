@@ -98,20 +98,13 @@ def normal_ppf(p: float) -> float:
     return 0.5 * (low + high)
 
 
-def chi_square_cdf(x: float, dof: int) -> float:
-    """Chi-square CDF with ``dof`` degrees of freedom.
+def _gamma_p_series(a: float, y: float) -> float:
+    """Regularized lower incomplete gamma ``P(a, y)`` by forward series.
 
-    Computed as the regularized lower incomplete gamma ``P(dof/2, x/2)`` via
-    its convergent series.
+    Convergent for ``y < a + 1``. The ``exp(a log y - y)`` prefix underflows
+    for large ``y`` (see :func:`chi_square_cdf`), so this path is only used
+    where the series is the well-conditioned representation.
     """
-    if not isinstance(x, (int, float)) or isinstance(x, bool) or x < 0:
-        raise ValueError("x must be a non-negative number")
-    if not isinstance(dof, int) or dof < 1:
-        raise ValueError("dof must be an integer >= 1")
-    if x == 0.0:
-        return 0.0
-    a = dof / 2.0
-    y = x / 2.0
     log_prefix = a * math.log(y) - y - math.lgamma(a)
     prefix = math.exp(log_prefix)
     term = 1.0 / a  # k=0 of the series y^k / (a)_(k+1)
@@ -122,6 +115,61 @@ def chi_square_cdf(x: float, dof: int) -> float:
             break
         term *= y / (a + k + 1)
     return float(min(1.0, max(0.0, prefix * total)))
+
+
+def _gamma_q_cf(a: float, y: float) -> float:
+    """Complementary regularized gamma ``Q(a, y)`` by Lentz continued fraction.
+
+    Stable for ``y >= a + 1``, the region where the forward series' prefix
+    underflows. ``Q = exp(-y + a log y - lgamma(a)) * [continued fraction]``.
+    """
+    f_pmin = 1e-300  # roughly the smallest normal double
+    f_eps = 3e-15
+    log_factor = -y + a * math.log(y) - math.lgamma(a)
+    b = y + 1.0 - a
+    c = 1.0 / f_pmin
+    d = 1.0 / b if b != 0.0 else f_pmin
+    h = d
+    for iteration in range(1, _GAMMA_MAX_TERMS + 1):
+        an = -iteration * (iteration - a)
+        b += 2.0
+        d = an * d + b
+        if abs(d) < f_pmin:
+            d = f_pmin
+        c = b + an / c
+        if abs(c) < f_pmin:
+            c = f_pmin
+        d = 1.0 / d
+        delta = d * c
+        h *= delta
+        if abs(delta - 1.0) < f_eps:
+            break
+    return math.exp(log_factor) * h
+
+
+def chi_square_cdf(x: float, dof: int) -> float:
+    """Chi-square CDF with ``dof`` degrees of freedom.
+
+    Computed as the regularized lower incomplete gamma ``P(dof/2, x/2)``.
+    The forward series is used where it is well-conditioned (``x/2 <
+    dof/2 + 1``); elsewhere the same series form underflows — ``exp(a log y -
+    y)`` drops below the smallest normal double around ``y ~ 850``, which made
+    the CDF fall back to ``0`` for large ``x`` (a non-monotonic CDF, since it
+    had already reached ``1`` at smaller ``x``). There the complement
+    ``Q(a, y)`` is computed by a Lentz continued fraction and the CDF returned
+    as ``1 - Q``, so the tail approaches 1 monotonically at any ``x``.
+    """
+    if not isinstance(x, (int, float)) or isinstance(x, bool) or x < 0:
+        raise ValueError("x must be a non-negative number")
+    if not isinstance(dof, int) or dof < 1:
+        raise ValueError("dof must be an integer >= 1")
+    if x == 0.0:
+        return 0.0
+    a = dof / 2.0
+    y = x / 2.0
+    if y < a + 1.0:
+        return _gamma_p_series(a, y)
+    return float(min(1.0, max(0.0, 1.0 - _gamma_q_cf(a, y))))
 
 
 def chi_square_ppf(p: float, dof: int) -> float:

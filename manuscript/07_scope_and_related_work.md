@@ -19,11 +19,13 @@ naming each rather than gesturing at "simplifications":
   measurement. Hegselmann–Krause has no empirical calibration here at all: the
   confidence radius and media weight are chosen, and the reported capture and
   bimodal split are properties of that choice.
-* **Stealth-vessel detection** — free-space, clutter-free propagation, a point
-  target with a single aspect-independent RCS, and a **nonfluctuating
-  (Swerling 0)** target throughout the canonical scenario. The Swerling-1
-  fluctuating case is implemented and tested but is not what the reported
-  detection ranges describe.
+* **Stealth-vessel detection** — free-space, clutter-free propagation and a
+  point target with a single aspect-independent RCS. Both target-fluctuation
+  models are now reported: the canonical range ({{STEALTH_RANGE_KM}} km) is the
+  nonfluctuating Swerling-0 case, and a Rayleigh (Swerling-1) fluctuating hull
+  is detected only out to {{STEALTH_SWERLING1_KM}} km. Swerling-1 is the more
+  realistic model for a ship in sea clutter, so the quoted
+  {{STEALTH_RANGE_KM}} km is the optimistic (non-fading) bound.
 * **Pulse compression** — the compression gain is treated as ideal coherent
   integration, with no weighting losses, no Doppler mismatch, and no
   range–Doppler coupling, all of which degrade a real LFM chirp. The noise

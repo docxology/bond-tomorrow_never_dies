@@ -145,3 +145,16 @@ def test_critical_media_reach_errors() -> None:
         critical_media_reach(network, target_share=1.0)
     with pytest.raises(ValueError):
         critical_media_reach(network, target_share=0.5, seed=-1)
+
+
+def test_simulate_opinions_with_zero_media_reach() -> None:
+    """A broadcast of reach 0 leaves the exposed set empty (V3 branch).
+
+    ``_exposed_mask`` takes its ``count > 0`` false branch; with nobody
+    exposed the media weight cannot pull any opinion, so capture is zero and
+    the result is still a valid, deterministic one.
+    """
+    result = simulate_opinions(50, 7, media_reach=0.0, steps=10)
+    assert len(result.final) == 50
+    assert result.media_capture == pytest.approx(0.0, abs=1e-9)
+    assert result.bimodal_split >= 0.0

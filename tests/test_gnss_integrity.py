@@ -275,3 +275,22 @@ def test_detection_probability_is_monotone_in_bias() -> None:
     assert probabilities == sorted(probabilities)
     assert probabilities[0] < 1e-3  # no bias: essentially only false alarms
     assert probabilities[-1] > 0.99
+
+
+def test_chi_square_cdf_is_monotonic_and_approaches_one() -> None:
+    """Regression for the prefix-underflow defect that broke the cdf tail.
+
+    The old forward-series implementation computed ``exp(a log y - y)``
+    directly, which underflows below ~1e-308 once ``y`` passes ~850 — so
+    ``chi_square_cdf(1701, 1)`` returned 0.0 even though
+    ``chi_square_cdf(1000, 1)`` already returned 1.0: a non-monotonic CDF.
+    The CDF must be monotone in ``x`` and round up to 1 at large ``x``.
+    """
+    for dof in (1, 2, 4, 8, 20):
+        previous = -1.0
+        for x in (0.001, 0.01, 0.1, 1.0, 10.0, 100.0, 1e3, 1e4, 1e5, 1e6, 1e7):
+            value = chi_square_cdf(float(x), dof)
+            assert 0.0 <= value <= 1.0 + 1e-12
+            assert value >= previous - 1e-12, (dof, x, value, previous)
+            previous = value
+        assert chi_square_cdf(1e7, dof) == pytest.approx(1.0, abs=1e-9)

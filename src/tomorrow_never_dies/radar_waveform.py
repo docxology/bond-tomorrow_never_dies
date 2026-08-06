@@ -162,10 +162,14 @@ def compress(received: np.ndarray, reference: np.ndarray) -> np.ndarray:
 
 
 def _mainlobe_half_width(waveform: Waveform) -> int:
-    """Half-width (in lags) of the compressed mainlobe, for sidelobe scans."""
-    if waveform.kind == "lfm":
-        return max(1, round(waveform.sample_rate_hz / waveform_bandwidth(waveform)))
-    return 1  # barker13: the mainlobe is the zero lag only
+    """Half-width (in lags) of the **LFM** compressed mainlobe, for sidelobe scans.
+
+    Only the LFM chirp is scanned at sample resolution; the Barker-13 code is
+    measured at chip multiples (:func:`peak_sidelobe_ratio`), so it never
+    reaches this helper. A dead ``return 1  # barker13`` fallback used to sit
+    here; it was unreachable and documented behaviour no call exercised.
+    """
+    return max(1, round(waveform.sample_rate_hz / waveform_bandwidth(waveform)))
 
 
 def peak_sidelobe_ratio(waveform: Waveform) -> float:

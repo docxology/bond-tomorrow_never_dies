@@ -13,11 +13,14 @@ the audience mean {{NARRATIVE_MEDIA_CAPTURE}}% toward the manufactured line whil
 fragmenting it into echo chambers (bimodal split {{NARRATIVE_BIMODAL_SPLIT}}; the
 tipping point is a reach of just {{NARRATIVE_CRITICAL_REACH_PCT}}%). A radar model
 finds that a {{STEALTH_RCS_REDUCTION_DB}} dB low-RCS reduction drops a stealth
-hull's detection range to {{STEALTH_RANGE_KM}} km, but pulse compression
-({{WAVEFORM_GAIN_DB}} dB, {{WAVEFORM_RES_M}} m resolution, {{WAVEFORM_PSLR_DB}} dB range
-sidelobes) restores it to {{WAVEFORM_RANGE_KM}} km —
+hull's detection range to {{STEALTH_RANGE_KM}} km ({{STEALTH_SWERLING1_KM}} km
+for a Rayleigh fluctuating hull), but pulse compression ({{WAVEFORM_GAIN_DB}} dB,
+{{WAVEFORM_RES_M}} m resolution, {{WAVEFORM_PSLR_DB}} dB range sidelobes) restores
+it to {{WAVEFORM_RANGE_KM}} km —
 {{WAVEFORM_IMPROVEMENT_PCT}}% beyond an unmodulated pulse of the same range
-resolution. A GPS-denial model drives effective C/N0 from
+resolution; the Barker-13 code reaches that same {{WAVEFORM_BARKER_RANGE_KM}} km
+at the cost of {{WAVEFORM_BARKER_RES_M}} m range resolution in exchange for a
+{{WAVEFORM_BARKER_PSLR_DB}} dB sidelobe floor. A GPS-denial model drives effective C/N0 from
 {{GPS_CNO_CLEAN_DBHZ}} to {{GPS_CNO_JAMMED_DBHZ}} dB-Hz at
 {{GPS_JAMMER_STANDOFF_KM}} km — below the {{GPS_LOCK_THRESHOLD_DBHZ}} dB-Hz
 carrier-lock threshold, so the modelled outcome is loss of lock rather than

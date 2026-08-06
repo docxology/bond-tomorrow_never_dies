@@ -182,3 +182,42 @@ def test_scenario_metrics() -> None:
     # position error is an extrapolation, and the scenario says so.
     assert metrics["gps_cno_jammed_dbhz"] < metrics["gps_cno_tracking_threshold_dbhz"]
     assert run_carver_scenario()["gps"]["tracks_under_jamming"] is False
+
+
+def test_scenario_swerling1_range_is_shorter() -> None:
+    """The canonical scenario now reports both target fluctuation models.
+
+    A Rayleigh (Swerling-1) hull is detected at strictly shorter range than
+    the same hull as a nonfluctuating (Swerling-0) target, because a fading
+    target must exceed threshold over the whole integration dwell.
+    """
+    scenario = run_carver_scenario()
+    stealth = scenario["stealth"]
+    assert stealth["stealth_range_swerling1_m"] > 0.0
+    assert stealth["stealth_range_swerling1_m"] < stealth["stealth_range_m"]
+    metrics = scenario_metrics(scenario)
+    assert metrics["stealth_swerling1_km"] < metrics["stealth_range_km"]
+    assert metrics["stealth_swerling1_km"] < metrics["stealth_ref_range_km"]
+
+
+def test_scenario_barker_range_matches_matched_filter_energy() -> None:
+    """Barker-13 reaches the same range as the LFM chirp at equal duration.
+
+    The naive expectation 'Barker gain 13 < chirp gain 500, so Barker range
+    is shorter' is false for this model: matched-filter detection range
+    depends on pulse energy alone, and the Barker code's lower gain is offset
+    by its proportionally narrower effective bandwidth, so at equal peak
+    power and equal duration the two ranges are equal. Barker's real cost is
+    resolution (its effective bandwidth is ~38x lower), not reach.
+    """
+    waveform = run_carver_scenario()["waveform"]
+    barker_range = waveform["barker_detection_range_m"]
+    lfm_range = waveform["detection_range_m"]
+    assert barker_range == pytest.approx(lfm_range, rel=1e-9)
+    # It still restores range against both the surveillance pulse and the
+    # equal-resolution unmodulated baseline.
+    assert barker_range > waveform["unmodulated_range_m"]
+    metrics = scenario_metrics(run_carver_scenario())
+    assert metrics["waveform_barker_range_km"] == pytest.approx(
+        metrics["waveform_range_km"], rel=1e-9
+    )

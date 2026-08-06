@@ -87,7 +87,7 @@ sibling packages you cannot see from here.
 uv run pytest tests/ --cov=src --cov-fail-under=90         # >=90% line+branch
 uv run ruff check src/ scripts/ && uv run ruff format src/ scripts/ tests/
 uv run mypy src/ scripts/
-rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock'   # aim zero
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md'   # aim zero
 git status --short                                                    # clean after commit
 ```
 

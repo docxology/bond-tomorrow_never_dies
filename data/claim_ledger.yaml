@@ -14,9 +14,12 @@ claims:
     freshness: active
     artifact_path: output/figures/stealth_detection.png
   - claim_id: marcum-floor-at-zero-snr
+    # General property, bound to the canonical p_fa so the declared value is
+    # re-derivable: for a nonfluctuating target, P_d(snr=0) = P_fa by the
+    # square-law detector. At the scenario's p_fa = 1e-6, P_d(0) = 1e-6.
     kind: number
-    value: 1.0e-4
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/stealth_detection.py detection_probability at SNR=0 equals P_fa
+    value: 1.0e-06
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/stealth_detection.py detection_probability(0.0, p_fa=1e-6) equals p_fa
     source_tier: project_source
     freshness: active
     artifact_path: manuscript/02_methodology.md
@@ -29,8 +32,8 @@ claims:
     artifact_path: manuscript/05_experimental_setup.md
   - claim_id: march-cascade-fraction-bound
     kind: number
-    value: 0.5
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/gps_denial.py simulated cascade fraction never exceeds failed/total in [0,1]
+    value: 0.4285714286
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/scenario.py canonical run_carver_scenario()['gps']['cascade_fraction'] (3 of 7 systems failed)
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/gps_denial.png
@@ -50,15 +53,15 @@ claims:
     artifact_path: output/figures/waveform_pulse_compression.png
   - claim_id: barker-uniform-sidelobe-floor
     kind: number
-    value: -22.28
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/radar_waveform.py barker13 PSLR (uniform -22.3 dB)
+    value: -22.1581
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/radar_waveform.py peak_sidelobe_ratio(barker13 canonical) measured sampled value (~ -22.3 dB ideal)
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/waveform_pulse_compression.png
   - claim_id: raim-hpl-scenario
     kind: number
-    value: 15.4
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/gnss_integrity.py protection_levels on the canonical constellation
+    value: 19.8772
+    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/gnss_integrity.py protection_levels on the canonical visible constellation (HPL)
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/raim_detection.png

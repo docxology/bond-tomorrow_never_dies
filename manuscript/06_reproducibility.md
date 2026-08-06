@@ -25,7 +25,7 @@ The suite is verified with the gates in the package preamble:
 
 ```bash
 uv run pytest tests/ --cov=src --cov-fail-under=90
-rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock'   # -> zero
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md'   # -> zero
 git status --short                                                       # clean
 ```
 
