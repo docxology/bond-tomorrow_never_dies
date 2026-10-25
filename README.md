@@ -42,6 +42,12 @@ uv run python scripts/z_generate_manuscript_variables.py   # figures + resolved 
 uv run pytest tests/ --cov=src --cov-fail-under=90         # the gate
 ```
 
+`bond-api` is not on PyPI: `[tool.uv.sources]` points `uv` at the PROJECT BOND
+monorepo path, so a bare checkout cannot `uv sync` (nor run `run_mission.py`).
+The domain core and the test suite do run there — put `src` on `PYTHONPATH`
+(plus a `bond_api` copy for the protocol tests) and run
+`python -m pytest tests/`.
+
 Individual mission phases have their own thin CLIs: `scripts/brief.py`,
 `recon.py`, `plan.py`, `execute.py`, `debrief.py`.
 

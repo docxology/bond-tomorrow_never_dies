@@ -90,7 +90,7 @@ uv run pytest tests/ --cov=src --cov-fail-under=90       # 0 failed, 0 skipped, 
 uv run ruff check src/ scripts/
 uv run ruff format --check src/ scripts/
 uv run mypy src/
-uv run python scripts/run_mission.py                     # protocol end-to-end
+uv run python scripts/run_mission.py                     # protocol end-to-end (needs the bond-api path dep)
 rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' --glob '!.agents/**'   # aim zero (the rule text itself is excluded)
 git status --short                                       # clean after commit
 ```

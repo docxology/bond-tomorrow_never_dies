@@ -1,2 +1,4 @@
 [template_export]
-cross_root_dependencies = ["infrastructure"]
+# Nothing is pulled from the monorepo root: the package contract forbids
+# `infrastructure.*` imports (enforced by tests/test_package_surface.py).
+cross_root_dependencies = []
