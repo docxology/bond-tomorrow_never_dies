@@ -1,8 +1,8 @@
 # Agent Instructions — CARVER
 
-Behavioral rules for AI agents working inside
-`projects/working/bond/tomorrow_never_dies`. Read this file *before*
-modifying any project file. Each rule states its consequence.
+Behavioral rules for AI agents working inside this package
+(`docxology/bond-tomorrow_never_dies`). Read this file *before* modifying any
+project file. Each rule states its consequence.
 
 ## Rule 1 — Zero mocks, real data only
 
@@ -87,9 +87,10 @@ sibling packages you cannot see from here.
 uv run pytest tests/ --cov=src --cov-fail-under=90         # >=90% line+branch
 uv run ruff check src/ scripts/ && uv run ruff format src/ scripts/ tests/
 uv run mypy src/ scripts/
-rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md'   # aim zero
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' --glob '!.agents/**'   # aim zero (rule text excluded)
 git status --short                                                    # clean after commit
 ```
 
-Per the BOND suite guardrails this is a local-only tree: never push, commit
-path-scoped inside this package only.
+Per the BOND suite guardrails, commit path-scoped inside this package only;
+the package is published at `github.com/docxology/bond-tomorrow_never_dies`
+(the `origin` remote), so finished work lands on `main` there.

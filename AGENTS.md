@@ -3,12 +3,13 @@
 **PROJECT BOND film package · mission codename CARVER · Tomorrow Never Dies
 (1997).**
 
-An active mission package in `projects/working/bond/`. It began as a
+An active mission package of the PROJECT BOND suite, published at
+`docxology/bond-tomorrow_never_dies`. It began as a
 `template_code_project` exemplar scaffold, was converted in phase 2 into a
 deterministic mission-software package, and was deepened in phase 4 to six
 domain models. This file is the package's own operational contract; the shared
 BOND guardrail preamble governs every package (scoped to this directory only,
-local-only tree, path-scoped commits, no mocks, ≥90% coverage, thin
+path-scoped commits, no mocks, ≥90% coverage, thin
 orchestrators, no `template_code_project` lineage strings).
 
 ## Concepts
@@ -90,7 +91,7 @@ uv run ruff check src/ scripts/
 uv run ruff format --check src/ scripts/
 uv run mypy src/
 uv run python scripts/run_mission.py                     # protocol end-to-end
-rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md'   # aim zero
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' --glob '!.agents/**'   # aim zero (the rule text itself is excluded)
 git status --short                                       # clean after commit
 ```
 

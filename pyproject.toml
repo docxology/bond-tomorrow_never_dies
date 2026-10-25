@@ -1,7 +1,8 @@
 # Code Project Configuration — PROJECT BOND · tomorrow_never_dies (CARVER)
 # Mission package for "Tomorrow Never Dies" (1997): disinformation propagation,
 # stealth-vessel detection, and GPS-denial impact analysis.
-# Inherits workspace settings from the monorepo root pyproject.toml.
+# Standalone package: every setting below is self-contained (the one external
+# input is the `bond-api` path source declared under [tool.uv.sources]).
 
 [build-system]
 requires = ["setuptools>=61.0"]
@@ -88,4 +89,6 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "PLW", "PERF", "RUF"]
 ignore = ["TRY004", "RUF001", "RUF002", "RUF003"]
 
 [tool.uv]
-# Inherits workspace settings from root pyproject.toml
+# `uv lock` / `uv sync` require the `bond-api` path source above to exist on
+# disk; it is a PROJECT BOND monorepo path, so a standalone checkout can run
+# the domain core and `tests/` from PYTHONPATH instead (see README).

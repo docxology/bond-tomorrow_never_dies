@@ -2,7 +2,7 @@
 
 Deterministic mission-software core for **Tomorrow Never Dies** (1997),
 codename **CARVER**. Pure domain modules (stdlib + numpy only) implement the
-three concepts; `mission.py` adapts them to the FROZEN `bond_api`
+six concepts; `mission.py` adapts them to the FROZEN `bond_api`
 `MissionProvider` protocol.
 
 ```python

@@ -2,9 +2,9 @@
   "@context": "https://doi.org/10.5063/schema/codemeta-2.0",
   "@type": "SoftwareSourceCode",
   "name": "tomorrow_never_dies — CARVER: Special-Agent Mission Software",
-  "codeRepository": "LOCAL-ONLY (PROJECT BOND working tree; no remote)",
+  "codeRepository": "https://github.com/docxology/bond-tomorrow_never_dies",
   "dateCreated": "2026-08-04",
-  "dateModified": "2026-08-04",
+  "dateModified": "2026-10-25",
   "author": [
     {
       "@type": "Person",

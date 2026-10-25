@@ -1,8 +1,8 @@
 # docs/ — Agent-Facing Documentation Hub
 
-Technical guide for `projects/working/bond/tomorrow_never_dies/docs/` — the
-operational rulebook for agents and developers working inside the CARVER
-package. Every document here is a hard constraint, not a suggestion.
+Technical guide for `docs/` in this package — the operational rulebook for
+agents and developers working inside CARVER. Every document here is a hard
+constraint, not a suggestion.
 
 ## File Inventory
 
@@ -63,6 +63,7 @@ uv run mypy src/
 ```
 
 The import-purity grep above is a convenience; the binding check is
-`tests/test_package_surface.py`, which derives the module list from
-`CONCEPTS` instead of a hand-maintained path list, so it cannot go stale when
-a module is added.
+`tests/test_package_surface.py`, which reads the module list from
+`manuscript/layer_contract.yaml` (the six concepts *plus* `scenario.py`)
+instead of a hand-maintained path list, so it cannot go stale when a module
+is added.

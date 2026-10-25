@@ -4,7 +4,7 @@ type: "manuscript_guide"
 version: "0.1.0"
 ---
 
-# Manuscript (`projects/working/bond/tomorrow_never_dies/manuscript/`)
+# Manuscript (`manuscript/`)
 
 This is the CARVER mission manuscript. Repository-wide agent rules live in
 [`../docs/agent_instructions.md`](../docs/agent_instructions.md). This file

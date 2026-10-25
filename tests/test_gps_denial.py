@@ -363,7 +363,9 @@ def test_per_edge_coupling_changes_cascade_while_default_is_unchanged() -> None:
         propagation_factor=0.5,
     )
     base = simulate_navigation_cascade(deps, weights, **common)
-    explicit_none = simulate_navigation_cascade(deps, weights, **common, edge_weights=None)
+    explicit_none = simulate_navigation_cascade(
+        deps, weights, **common, edge_weights=None
+    )
     assert explicit_none == base  # default equals explicit None: unchanged
 
     edge_hi = {(s, d): 1.0 for s, ds in deps.items() for d in ds}

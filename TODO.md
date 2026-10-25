@@ -5,11 +5,10 @@ deterministic domain models arranged as three attack/counter pairs (media
 manipulation vs narrative control, stealth detection vs pulse compression, GPS
 denial vs GNSS integrity), one canonical seeded scenario that every published
 number reads from, a `bond_api` `MissionProvider` adapter, six figures, and a
-fully tokenized manuscript. **Verified state, measured this session on
-2026-08-05 (Python 3.14.6, darwin): 195 passed, 0 failed, 0 skipped; 98.84%
-line+branch coverage over `src/` (1258 statements / 460 branches, 6 statements
-and 14 branch legs missed); `ruff check`, `ruff format --check` and `mypy src/`
-all clean.** The phase-6 adversarial-audit remediation is complete — all 11
+fully tokenized manuscript. **Verified state, re-measured 2026-10-25 (Python
+3.12.15, darwin) and matching the round-2 gate: 216 passed, 0 failed, 0
+skipped; 99.26% line+branch coverage over `src/` (1292 statements / 476
+branches); `ruff check`, `ruff format --check` and `mypy src/` all clean.** The phase-6 adversarial-audit remediation is complete — all 11
 findings in `output/verify/tomorrow_never_dies.json` were checked against the
 tree and none is still true. What follows is what is open now.
 
@@ -189,15 +188,19 @@ absent.
 
 **D1 — the lineage-grep in the Verify block can never return zero. [new]**
 
-`AGENTS.md:93` prescribes
+`AGENTS.md` prescribes
 `rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md'   # aim zero`.
-Run verbatim it returns **2** hits, both inside `AGENTS.md` itself (lines 7 and
-12), where the lineage rule is written down. A verification step whose stated
-pass condition is unreachable trains the reader to ignore its output.
+The expectation was unreachable: the only hits are the places where the
+lineage rule itself is written down — `AGENTS.md` (excluded by the glob, and
+excluded by the pattern above it anyway) and
+`.agents/skills/tomorrow-never-dies/SKILL.md` (lines 22 and 66). A verification
+step whose stated pass condition is unreachable trains the reader to ignore
+its output.
 
-*Done looks like:* the command excludes the file that documents the rule (e.g.
-`--glob '!AGENTS.md'`) or the comment states the true expected count and where
-those hits live.
+*Done looks like:* the command excludes the files that document the rule. The
+exclusion list now carries `--glob '!.agents/**'` beside `--glob '!**/AGENTS.md'`,
+so "aim zero" is literally true; verified with
+`git grep -nE 'template[_]code_project' -- . ':(exclude)*AGENTS.md' ':(exclude).agents/*'` → no hits.
 *Command:* run the command in `AGENTS.md:93` exactly as written; its output
 matches the stated expectation.
 
@@ -355,7 +358,7 @@ restriction, not a package failure; re-run with the sandbox disabled.
 
 ```bash
 uv run pytest tests/ --cov=src --cov-fail-under=90
-#   expect: 195 passed, 0 failed, 0 skipped, TOTAL 98.84% (>= 90% gate)
+#   expect: 216 passed, 0 failed, 0 skipped, TOTAL 99.26% (>= 90% gate)
 #   any change to src/ or tests/ changes these numbers — re-measure, then
 #   rewrite docs/_generated/COUNTS.md from the run, never by hand.
 
@@ -500,9 +503,9 @@ uv run pytest tests/ --cov=src --cov-fail-under=90   # 216 passed, 0 failed, 0 s
 uv run ruff check src/ scripts/                       # All checks passed!
 uv run ruff format --check src/ scripts/              # 24 files already formatted
 uv run mypy src/                                      # 11 source files, no issues
-uv run python scripts/run_mission.py                  # exit 0, six stages, provenance
+uv run python scripts/run_mission.py                  # exit 0, five stages, provenance
 uv run python scripts/z_generate_manuscript_variables.py  # 90 tokens, 6 figures, resolved tree
-rg "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md'  # 0
+rg "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' --glob '!.agents/**'  # 0
 ```
 
 `docs/_generated/COUNTS.md` rewritten from the run (216 / 99.26% /

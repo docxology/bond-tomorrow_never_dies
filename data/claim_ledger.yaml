@@ -2,14 +2,14 @@ claims:
   - claim_id: stealth-rcs-reduction-db
     kind: number
     value: 20.0
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/stealth_detection.py rcs_reduction_db for 1.0 vs 0.01 m2
+    source: src/tomorrow_never_dies/stealth_detection.py rcs_reduction_db for 1.0 vs 0.01 m2
     source_tier: project_source
     freshness: active
     artifact_path: output/figures/stealth_detection.png
   - claim_id: detection-range-fourth-root-ratio
     kind: number
     value: 0.316227766
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/stealth_detection.py detection_range_ratio = (0.01)^0.25
+    source: src/tomorrow_never_dies/stealth_detection.py detection_range_ratio = (0.01)^0.25
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/stealth_detection.png
@@ -19,56 +19,56 @@ claims:
     # square-law detector. At the scenario's p_fa = 1e-6, P_d(0) = 1e-6.
     kind: number
     value: 1.0e-06
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/stealth_detection.py detection_probability(0.0, p_fa=1e-6) equals p_fa
+    source: src/tomorrow_never_dies/stealth_detection.py detection_probability(0.0, p_fa=1e-6) equals p_fa
     source_tier: project_source
     freshness: active
     artifact_path: manuscript/02_methodology.md
   - claim_id: jammer-range-standoff
     kind: number
     value: 100000.0
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/scenario.py SCENARIO_PARAMS gps.jammer_distance_m
+    source: src/tomorrow_never_dies/scenario.py SCENARIO_PARAMS gps.jammer_distance_m
     source_tier: project_source
     freshness: active
     artifact_path: manuscript/05_experimental_setup.md
   - claim_id: march-cascade-fraction-bound
     kind: number
     value: 0.4285714286
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/scenario.py canonical run_carver_scenario()['gps']['cascade_fraction'] (3 of 7 systems failed)
+    source: src/tomorrow_never_dies/scenario.py canonical run_carver_scenario()['gps']['cascade_fraction'] (3 of 7 systems failed)
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/gps_denial.png
   - claim_id: media-belief-share-bounds
     kind: range
     value: "0.0 < belief_share < 1.0"
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/scenario.py canonical media run belief_share
+    source: src/tomorrow_never_dies/scenario.py canonical media run belief_share
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/disinformation_propagation.png
   - claim_id: lfm-time-bandwidth-gain
     kind: number
     value: 500.0
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/radar_waveform.py processing_gain B*T for the LFM chirp
+    source: src/tomorrow_never_dies/radar_waveform.py processing_gain B*T for the LFM chirp
     source_tier: project_source
     freshness: active
     artifact_path: output/figures/waveform_pulse_compression.png
   - claim_id: barker-uniform-sidelobe-floor
     kind: number
     value: -22.1581
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/radar_waveform.py peak_sidelobe_ratio(barker13 canonical) measured sampled value (~ -22.3 dB ideal)
+    source: src/tomorrow_never_dies/radar_waveform.py peak_sidelobe_ratio(barker13 canonical) measured sampled value (~ -22.3 dB ideal)
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/waveform_pulse_compression.png
   - claim_id: raim-hpl-scenario
     kind: number
     value: 19.8772
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/gnss_integrity.py protection_levels on the canonical visible constellation (HPL)
+    source: src/tomorrow_never_dies/gnss_integrity.py protection_levels on the canonical visible constellation (HPL)
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/raim_detection.png
   - claim_id: opinion-bimodal-split
     kind: range
     value: "0.0 < bimodal_split < 1.0"
-    source: projects/working/bond/tomorrow_never_dies/src/tomorrow_never_dies/narrative_control.py canonical bounded-confidence run
+    source: src/tomorrow_never_dies/narrative_control.py canonical bounded-confidence run
     source_tier: generated_metric
     freshness: active
     artifact_path: output/figures/narrative_control.png

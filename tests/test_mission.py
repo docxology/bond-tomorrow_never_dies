@@ -209,5 +209,7 @@ def test_debrief_tolerates_outcome_without_stealth_step() -> None:
     outcome = provider.execute(no_stealth)
     assert "stealth" not in outcome.results["per_step"]
     debrief = provider.debrief(outcome)
-    assert not any("RCS reduction cuts detection range" in lesson for lesson in debrief.lessons)
+    assert not any(
+        "RCS reduction cuts detection range" in lesson for lesson in debrief.lessons
+    )
     assert any("belief share" in lesson for lesson in debrief.lessons)
