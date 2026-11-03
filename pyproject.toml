@@ -37,7 +37,7 @@ dev = [
 # phase-1, FROZEN). mission.py is the thin adapter; the domain core below does
 # NOT import bond-api so it stays importable if the path dep ever fails.
 [tool.uv.sources]
-bond-api = { path = "/Users/4d/Documents/GitHub/template/projects/working/bond/bond-api" }
+bond-api = { path = "../bond-api" }
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
