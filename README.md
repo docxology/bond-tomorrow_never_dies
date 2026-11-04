@@ -36,17 +36,19 @@ Every module under `src/tomorrow_never_dies/`:
 ## Quick start
 
 ```bash
-uv sync --extra dev                                        # deps + bond-api path dep
+uv sync --extra dev                                        # deps, incl. the recorded bond-api copy
 uv run python scripts/run_mission.py                       # full five-stage mission
 uv run python scripts/z_generate_manuscript_variables.py   # figures + resolved manuscript
 uv run pytest tests/ --cov=src --cov-fail-under=90         # the gate
 ```
 
-`bond-api` is not on PyPI: `[tool.uv.sources]` points `uv` at the PROJECT BOND
-monorepo path, so a bare checkout cannot `uv sync` (nor run `run_mission.py`).
-The domain core and the test suite do run there — put `src` on `PYTHONPATH`
-(plus a `bond_api` copy for the protocol tests) and run
-`python -m pytest tests/`.
+`bond-api` is not on PyPI and does not need to be: it ships inside this
+repository as the recorded copy at `vendor/bond-api`, and `[tool.uv.sources]`
+installs it from there, so a bare checkout `uv sync`s with no suite tree
+present. `PROVENANCE.json` records the upstream commit and byte digests;
+`uv run python scripts/vendor.py --check` re-verifies them offline (the suite
+runs that check too). Until 2026-11-04 the source was the relative sibling path
+`../bond-api`, which made a sibling-free checkout unsyncable.
 
 Individual mission phases have their own thin CLIs: `scripts/brief.py`,
 `recon.py`, `plan.py`, `execute.py`, `debrief.py`.

@@ -10,7 +10,8 @@ deterministic mission-software package, and was deepened in phase 4 to six
 domain models. This file is the package's own operational contract; the shared
 BOND guardrail preamble governs every package (scoped to this directory only,
 path-scoped commits, no mocks, ≥90% coverage, thin
-orchestrators, no `template_code_project` lineage strings).
+orchestrators, no exemplar-lineage strings — the scaffold's name appears once
+above, as provenance, and nowhere else in the tree).
 
 ## Concepts
 
@@ -91,7 +92,7 @@ uv run ruff check src/ scripts/
 uv run ruff format --check src/ scripts/
 uv run mypy src/
 uv run python scripts/run_mission.py                     # protocol end-to-end (needs the bond-api path dep)
-rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' --glob '!.agents/**'   # aim zero (the rule text itself is excluded)
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' --glob '!.agents/**'   # aim zero; the one provenance sentence that names the scaffold is excluded (see TODO W1)
 git status --short                                       # clean after commit
 ```
 

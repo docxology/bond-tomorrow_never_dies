@@ -358,12 +358,12 @@ restriction, not a package failure; re-run with the sandbox disabled.
 
 ```bash
 uv run pytest tests/ --cov=src --cov-fail-under=90
-#   expect: 216 passed, 0 failed, 0 skipped, TOTAL 99.26% (>= 90% gate)
+#   expect: 217 passed, 0 failed, 0 skipped, TOTAL 99.26% (>= 90% gate)
 #   any change to src/ or tests/ changes these numbers — re-measure, then
 #   rewrite docs/_generated/COUNTS.md from the run, never by hand.
 
 uv run ruff check src/ scripts/           # expect: All checks passed!
-uv run ruff format --check src/ scripts/  # expect: 24 files already formatted
+uv run ruff format --check src/ scripts/  # expect: 25 files already formatted
 uv run mypy src/                          # expect: no issues found in 11 source files
 
 uv run python scripts/run_mission.py      # expect: exit 0, five stages, provenance printed
@@ -378,11 +378,15 @@ find output -type f | sort | xargs cat | md5
 sleep 2
 uv run python scripts/z_generate_manuscript_variables.py >/dev/null
 find output -type f | sort | xargs cat | md5
-#   expect: identical hashes. Bound in-suite by
+#   expect: identical hashes (measured 2026-11-04: c4691c104b7bab40 both times).
+#   Bound in-suite by
 #   tests/test_scripts_smoke.py::test_regeneration_is_byte_identical.
 
-rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md'
-#   expect: 2 hits, both in AGENTS.md (the file that states the rule) — see D1
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' --glob '!.agents/**'
+#   expect: no output, exit 1 (measured 2026-11-04). The rule's own copies are
+#   bracket-split and the one provenance sentence that names the scaffold
+#   (`AGENTS.md:8`) is the file this command excludes — see W1, which supersedes
+#   the "2 hits, both in AGENTS.md" expectation this line used to carry.
 git status --short                        # expect: empty after commit
 ```
 
@@ -510,3 +514,36 @@ rg "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/A
 
 `docs/_generated/COUNTS.md` rewritten from the run (216 / 99.26% /
 1292 statements / 476 branches / 90 tokens).
+
+## Vendoring wave (2026-11-04)
+
+`bond-api` now ships as the recorded copy at `vendor/bond-api` (upstream
+`c0362ff0c9d7`, payload `aggregate_sha256 2e8fa087be…`, 10 files; the 16
+changed paths' git-clean blob set verified 16/16), `[tool.uv.sources]` points
+at it, and `uv.lock` is regenerated from that declaration: `uv lock --check`
+rc=1 → rc=0, byte-identical across two runs (`8223623ee02772c4`) and unchanged
+by `--refresh`, 4 changed lines in 2 moved blocks, 0 sibling references and 2
+`vendor/` references. `scripts/vendor.py --check` reports `vendor/bond-api: ok`
+with 0 findings, and `tests/test_vendor_provenance.py` runs that check inside
+the suite. This repository declares `line-length = 88` in its own
+`[tool.ruff.lint]` block (measured: effective 88, against 88 under
+`--isolated`), so the generated checker arrived as the 88-family bytes
+(`checker_sha256 e7b56b3e…`) and needed no re-conform and no re-seal.
+
+| # | Observation | Evidence |
+|---|---|---|
+| W1 | The lineage audit's stated expectation was unreachable in the spelling it sat under, and its three copies disagreed. | Measured before the corrections: the `TODO.md` and `AGENTS.md` spellings both return **no output, exit 1**; the literal pattern with no exclusions finds **2 hits, both in `AGENTS.md`** (the provenance sentence and the rule line); adding `--hidden` finds **4** — the rule lines in `.agents/skills/tomorrow-never-dies/SKILL.md` (lines 22 and 66) quote the scaffold's name and are invisible to a default `rg` run, which is why `--glob '!.agents/**'` was needed. The rule's copies are now stated in words in `AGENTS.md` and the skill, leaving **exactly one** literal occurrence — the provenance sentence at `AGENTS.md:8`, which the documented command excludes — and the `TODO.md` expectation now reads "no output, exit 1" with the measurement beside it. |
+| W2 | A template-era suite path in three places, corrected. | The skill pointed at `projects/working/bond/tomorrow_never_dies/` (twice, including its `cd` line, now `cd "$(git rev-parse --show-toplevel)"`) and `TODO.md` said "CARVER lives under `projects/working/bond/`". Measured 2026-11-04: that directory does not exist on this machine; the sibling packages match `../bond-*`. |
+| W3 | Dependency-resolution prose falsified by the change, corrected. | `README.md` said "`[tool.uv.sources]` points `uv` at the PROJECT BOND monorepo path, so a bare checkout cannot `uv sync` (nor run `run_mission.py`)… put `src` on `PYTHONPATH`", and the `[tool.uv]` comment in `pyproject.toml` said the same. Both now name the recorded copy; measured in a sibling-free export, `uv sync --extra dev` is rc=0 with `uv.lock` unchanged by the sync, and the whole gate passes there. |
+| W4 | The generated exclusions' effect, measured with a two-arm control (table kept in `pyproject.toml`, only its body varying) — and the exclusion is **not monotone** for mypy here. | As committed: whole-tree `ruff check .` rc=1 with **2 findings, both in `tests/`** (`RUF043` at `test_gps_denial.py:347:42`, `I001` at `test_manuscript_variables.py:267:5` — outside the documented `src/ scripts/` scope, present at both ends, recorded not swept) and 0 under `vendor/`; whole-tree `ruff format --check .` rc=0 at 77 files. With the single `extend-exclude = ["vendor"]` line removed: `ruff check .` rc=1 with **11 findings, 9 of them under `vendor/`**, and the formatter rc=1 with **7 vendored files would be reformatted**. The mypy `exclude` line, measured on a whole-tree run with both lines' presence varied: **19 errors in 3 files (35 checked)** with it and **15 errors in 2 files (42 checked)** without it, none under `vendor/` either way — so on this tree the exclusion also changes how the rest of the tree is analysed. The documented gate (`mypy src/`, 11 files) is rc=0 in every arm. |
+| W5 | The live expectations and the generated counts refreshed. | Both `ruff format` spellings that are not checks (`docs/agent_instructions.md`, the skill's Quick Reference) corrected to `--check`; the Verification block re-dated (217 passed at the same 99.26%, 25 formatted files, 11 mypy source files, 10 smoke tests, digest `c4691c104b7bab40` measured with the number written beside it); `docs/_generated/COUNTS.md` rewritten from the real run with the new measurement date, the recorded-copy row, the output-file count and the note that this package's determinism claim is bound in-suite. The dated round-2 record keeps its own numbers. |
+
+End-to-end evidence at the branch tip: gate 1 rc=0, **217 passed** (0 failed,
+0 skipped) at 99.26% line+branch (1292/476, 3 missed / 10 partial, the same
+three modules below 100% as before the change); mock audit rc=1 with 0 hits;
+the documented lineage audit rc=1 with 0 hits and the literal pattern down to
+its one documented provenance hit; `ruff check src/ scripts/` rc=0; `ruff
+format --check src/ scripts/` 25 files; `mypy src/` 11 files in both
+spellings; `run_mission.py` rc=0 (five stages); 10 smoke tests pass; the
+regeneration digest identical across a second boundary; 16 output files;
+`git status` clean.

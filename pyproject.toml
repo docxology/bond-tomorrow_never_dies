@@ -37,7 +37,7 @@ dev = [
 # phase-1, FROZEN). mission.py is the thin adapter; the domain core below does
 # NOT import bond-api so it stays importable if the path dep ever fails.
 [tool.uv.sources]
-bond-api = { path = "../bond-api" }
+bond-api = { path = "vendor/bond-api" }
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
@@ -68,12 +68,16 @@ exclude_lines = [
 ]
 
 [tool.mypy]
+# Vendored copies are a dependency; their bytes are bound by scripts/vendor.py.
+exclude = ["(^|/)vendor/"]
 mypy_path = ["src"]
 explicit_package_bases = true
 python_version = "3.11"
 warn_unused_configs = true
 
 [tool.ruff]
+# The vendored copies are byte-identical to upstream and must stay that way.
+extend-exclude = ["vendor"]
 line-length = 88
 target-version = "py310"
 
@@ -89,6 +93,6 @@ select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "PLW", "PERF", "RUF"]
 ignore = ["TRY004", "RUF001", "RUF002", "RUF003"]
 
 [tool.uv]
-# `uv lock` / `uv sync` require the `bond-api` path source above to exist on
-# disk; it is a PROJECT BOND monorepo path, so a standalone checkout can run
-# the domain core and `tests/` from PYTHONPATH instead (see README).
+# `uv lock` / `uv sync` resolve the `bond-api` path source above from the
+# recorded copy that ships in this repository (`vendor/bond-api`), so a
+# standalone checkout syncs with no suite tree present (see README).
