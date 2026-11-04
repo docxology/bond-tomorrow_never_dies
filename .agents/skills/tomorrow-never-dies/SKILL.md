@@ -9,9 +9,10 @@ tags: [bond, carver, mission-software, disinformation, stealth-detection, gps-de
 
 # tomorrow-never-dies — CARVER
 
-Project-scoped skill for the BOND suite film package at
-`projects/working/bond/tomorrow_never_dies/`. Load this when working inside
-the package.
+Project-scoped skill for the BOND suite film package published at
+`docxology/bond-tomorrow_never_dies` — a sibling of the other `bond-*`
+directories; the template-era `projects/working/bond/` path is gone. Load this
+when working inside the package.
 
 ## When to Use
 
@@ -19,17 +20,17 @@ the package.
   BOND-API `MissionProvider` in `mission.py`, thin CLIs, or manuscript).
 - Regenerating figures / manuscript tokens / the resolved manuscript.
 - Verifying the BOND guardrails (no mocks, ≥90% line+branch coverage, thin
-  orchestrators, no `template_code_project` lineage, path-scoped commits).
+  orchestrators, no exemplar-lineage strings, path-scoped commits).
 
 ## Quick Reference
 
 ```bash
-cd projects/working/bond/tomorrow_never_dies
+cd "$(git rev-parse --show-toplevel)"
 uv sync --extra dev
 uv run python scripts/run_mission.py                          # full 5-stage mission
 uv run python scripts/z_generate_manuscript_variables.py      # figures + {{TOKEN}}s + resolved manuscript
 uv run pytest tests/ --cov=src --cov-fail-under=90            # gate (>=90% line+branch)
-uv run ruff check src/ scripts/ && uv run ruff format src/ scripts/ tests/
+uv run ruff check src/ scripts/ && uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
 ```
 
@@ -63,7 +64,8 @@ Six figures live in `src/tomorrow_never_dies/figures.py`; the film's gadgets
   `infrastructure.*` — only `mission.py` touches `bond_api`.
 - **No mocks.** Real data + computation only; deterministic fakes implement
   the real protocol.
-- **No `template_code_project` lineage** (aim zero). `output/` is
+- **No exemplar-lineage strings** (aim zero; the scaffold's name survives only
+  as provenance in `AGENTS.md`). `output/` is
   git-ignored and regenerable — never hand-edit.
 - **Determinism:** fixed seed 7; `now=` overrides pin timestamps; no
   wall-clock in persisted outcomes.

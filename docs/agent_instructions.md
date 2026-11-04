@@ -85,9 +85,9 @@ sibling packages you cannot see from here.
 
 ```bash
 uv run pytest tests/ --cov=src --cov-fail-under=90         # >=90% line+branch
-uv run ruff check src/ scripts/ && uv run ruff format src/ scripts/ tests/
+uv run ruff check src/ scripts/ && uv run ruff format --check src/ scripts/ tests/
 uv run mypy src/ scripts/
-rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' --glob '!.agents/**'   # aim zero (rule text excluded)
+rg -n "template[_]code_project" . --glob '!.git/**' --glob '!uv.lock' --glob '!**/AGENTS.md' --glob '!.agents/**'   # aim zero; the one provenance sentence that names the scaffold is excluded (see TODO W1)
 git status --short                                                    # clean after commit
 ```
 
