@@ -37,7 +37,7 @@ dev = [
 # phase-1, FROZEN). mission.py is the thin adapter; the domain core below does
 # NOT import bond-api so it stays importable if the path dep ever fails.
 [tool.uv.sources]
-bond-api = { path = "../bond-api" }
+bond-api = { path = "vendor/bond-api" }
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
@@ -68,12 +68,16 @@ exclude_lines = [
 ]
 
 [tool.mypy]
+# Vendored copies are a dependency; their bytes are bound by scripts/vendor.py.
+exclude = ["(^|/)vendor/"]
 mypy_path = ["src"]
 explicit_package_bases = true
 python_version = "3.11"
 warn_unused_configs = true
 
 [tool.ruff]
+# The vendored copies are byte-identical to upstream and must stay that way.
+extend-exclude = ["vendor"]
 line-length = 88
 target-version = "py310"
 
