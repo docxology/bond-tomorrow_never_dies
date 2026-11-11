@@ -547,3 +547,71 @@ format --check src/ scripts/` 25 files; `mypy src/` 11 files in both
 spellings; `run_mission.py` rc=0 (five stages); 10 smoke tests pass; the
 regeneration digest identical across a second boundary; 16 output files;
 `git status` clean.
+
+## Workflowz review — 2026-11-10
+
+### Correctness
+
+**R1 — reject odd small-world ring degrees instead of silently building the wrong graph. P1**
+
+`build_network` accepts every integer `k` in `[1, n_nodes)` (`src/tomorrow_never_dies/media_manipulation.py:133-136`) and documents `k` as the ring degree (`src/tomorrow_never_dies/media_manipulation.py:121-130`), but the lattice loop uses only `range(1, k // 2 + 1)` (`src/tomorrow_never_dies/media_manipulation.py:146-150`). Thus `k=5` produces degree 4 and `k=1` produces isolated nodes, while the same `k` in the Barabási–Albert branch really is the attachment count. Existing coverage checks only even `k=6` (`tests/test_media_manipulation.py:35-37`). Require even `k` for `topology="small_world"` with an actionable `ValueError`, document that constraint, and add odd-`k` regression cases; leave Barabási–Albert odd `k` valid. The canonical `k=4` scenario is unchanged.
+
+*Done looks like:* every accepted small-world call has the documented degree, and odd small-world degrees fail at the boundary rather than returning a different topology.
+*Command:*
+```bash
+uv run pytest tests/test_media_manipulation.py -q
+uv run python - <<'PY'
+from tomorrow_never_dies.media_manipulation import build_network
+try:
+    build_network(10, 7, topology="small_world", k=5, rewire_prob=0.0)
+except ValueError as exc:
+    assert "even" in str(exc)
+else:
+    raise AssertionError("odd small-world degree was accepted")
+PY
+```
+Expect both commands to exit 0, with the new regression tests passing. No dependency or frozen-protocol change.
+
+### Runtime and validation
+
+**R2 — pin the full preferred interpreter patch release. P2**
+
+The checkout requests only `3.15` (`.python-version:1`), so patch selection floats; the latest recorded measurement used Python 3.15.1 (`docs/_generated/COUNTS.md:53`). Change the pin to exactly `3.15.2`. Keep `requires-python = ">=3.11"` (`pyproject.toml:19`) as the supported package range and retain the lockfile's `python_full_version >= '3.15'` resolution (`uv.lock:3-6`); no dependency, fixture, deployment, or reproducibility constraint requiring a minor-only pin was found.
+
+*Done looks like:* `.python-version` contains only `3.15.2`, and fresh checkout tooling selects that patch release without changing the declared compatibility range.
+*Command:* `uv run python -c 'import sys; assert sys.version_info[:3] == (3, 15, 2); print(sys.version)'` — expect exit 0 and a 3.15.2 version. Re-run the documented test gate on that interpreter and refresh generated measurement metadata if it changes.
+
+**R3 — make the Ruff gate cover the tests it is meant to protect. P2**
+
+The configured verification checks only `src/ scripts/` (`AGENTS.md:90-91`), although test imports and regexes are code too. The current tree already records two test-only findings: unnecessary regex escaping at `tests/test_gps_denial.py:347` and unsorted/local imports at `tests/test_manuscript_variables.py:267-269` (`TODO.md:538`, W4). Fix those findings, include `tests/` in the lint command, and align the root and docs verification blocks. Preserve `extend-exclude = ["vendor"]` (`pyproject.toml:79-82`); the recorded dependency is not new lint scope.
+
+*Done looks like:* test code is linted on every documented gate, with both existing findings removed and no vendored files checked.
+*Command:* `uv run ruff check src/ scripts/ tests/ && uv run ruff format --check src/ scripts/ tests/` — expect both commands to exit 0.
+
+**R4 — reconcile the advertised mypy scope with the command actually run. P2**
+
+The detailed rulebook requires `uv run mypy src/ scripts/` (`docs/agent_instructions.md:87-90`), and the README says mypy is clean on `src/` and `scripts/` (`README.md:106-107`), but the root gate checks only `uv run mypy src/` (`AGENTS.md:89-92`; also `TODO.md:355-358`). Resolve any real script annotations and make every documented gate run `mypy src/ scripts/`; do not silence errors or expand into `vendor/`/tests as part of this fix.
+
+*Done looks like:* the orchestrator scripts receive the type checking the documentation already claims, and all three verification descriptions use the same command.
+*Command:* `uv run mypy src/ scripts/` — expect exit 0 with no issues found.
+
+### Documentation
+
+**R5 — make the TODO's current state distinguish open work from completed history. P2**
+
+The header still reports 216 tests on Python 3.12.15 (`TODO.md:7-12`) while the later measured state is 217 tests on Python 3.15.1 (`TODO.md:539-549`; `docs/_generated/COUNTS.md:9-13,53`). More importantly, C1–C3, V1–V4, D1–D2, E2 and E3 remain under `## Open work` (`TODO.md:43-306`) even though the Round-2 record explicitly closes them (`TODO.md:400-470`). Update the header from the generated current evidence and move those closed entries into the dated history, retaining E1 and the genuinely blocked/declined E4 with their constraints. This is a status correction, not permission to delete the useful defect history.
+
+*Done looks like:* `Open work` contains only currently actionable/deferred items, the historical fixes remain traceable, and the header agrees with `docs/_generated/COUNTS.md` rather than an older run.
+*Command:*
+```bash
+python - <<'PY'
+from pathlib import Path
+text = Path("TODO.md").read_text(encoding="utf-8")
+open_work = text.split("## Open work\n", 1)[1].split("\n## ", 1)[0]
+for item in ("C1", "C2", "C3", "V1", "V2", "V3", "V4", "D1", "D2", "E2", "E3"):
+    assert f"**{item} " not in open_work, item
+header = text.split("## Recently closed", 1)[0]
+assert "217 passed" in header and "Python 3.15.1" in header
+PY
+```
+Expect exit 0. Depends only on preserving the existing generated-counts source of truth; do not hand-edit `docs/_generated/COUNTS.md` without a new measurement.
