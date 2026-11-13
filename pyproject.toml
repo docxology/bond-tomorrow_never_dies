@@ -79,7 +79,7 @@ warn_unused_configs = true
 # The vendored copies are byte-identical to upstream and must stay that way.
 extend-exclude = ["vendor"]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 # Self-contained, deterministic rule set for this package (not inherited from
