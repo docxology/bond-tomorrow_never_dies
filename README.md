@@ -10,6 +10,30 @@ into six deterministic, reproducible scientific analyses — and, deliberately,
 into three **adversarial pairs**: for each weapon, the model of the thing that
 answers it.
 
+## Mission model
+
+```mermaid
+flowchart TD
+    accTitle: CARVER implemented mission analyses
+    accDescr: Media network, radar waveform and satellite geometry feed Belief diffusion and bounded-confidence opinion dynamics; Stealth detection and pulse-compression recovery; GPS-denial cascades and GNSS integrity monitoring. The mission adapter returns influence, radar-range, navigation-error and integrity metrics with provenance, then a debrief.
+    I["Media network, radar waveform and satellite geometry"]
+    G0["Belief diffusion and bounded-confidence opinion dynamics"]
+    I --> G0
+    G1["Stealth detection and pulse-compression recovery"]
+    I --> G1
+    G2["GPS-denial cascades and GNSS integrity monitoring"]
+    I --> G2
+    O["mission.py: execute returns MissionOutcome<br/>Influence, radar-range, navigation-error and integrity metrics and provenance"]
+    G0 --> O
+    G1 --> O
+    G2 --> O
+    O --> F["debrief: mission summary"]
+```
+
+The branches group implemented capabilities; they do not imply a runtime order.
+
+**Source map:** [`media_manipulation.py`](src/tomorrow_never_dies/media_manipulation.py), [`narrative_control.py`](src/tomorrow_never_dies/narrative_control.py); [`stealth_detection.py`](src/tomorrow_never_dies/stealth_detection.py), [`radar_waveform.py`](src/tomorrow_never_dies/radar_waveform.py); [`gps_denial.py`](src/tomorrow_never_dies/gps_denial.py), [`gnss_integrity.py`](src/tomorrow_never_dies/gnss_integrity.py); [`mission.py`](src/tomorrow_never_dies/mission.py).
+
 | Pair | Attack | Counter |
 |---|---|---|
 | **Media** | `media_manipulation.py` — *whether* people believe | `narrative_control.py` — *how far* opinion moves, and what it costs in fragmentation |
