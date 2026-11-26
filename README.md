@@ -1,5 +1,7 @@
 # tomorrow_never_dies — CARVER
 
+See [package maintenance](docs/package-maintenance.md) for dependency and citation records.
+
 **CARVER** — *Special-Agent Mission Software* for **Tomorrow Never Dies**
 (1997) · PROJECT BOND film package.
 
