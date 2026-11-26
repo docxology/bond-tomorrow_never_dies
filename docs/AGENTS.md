@@ -1,5 +1,7 @@
 # docs/ — Agent-Facing Documentation Hub
 
+[Package maintenance](package-maintenance.md) identifies the dependency and citation records.
+
 Technical guide for `docs/` in this package — the operational rulebook for
 agents and developers working inside CARVER. Every document here is a hard
 constraint, not a suggestion.

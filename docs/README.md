@@ -1,5 +1,7 @@
 # docs/ — CARVER Documentation Hub
 
+[Package maintenance](package-maintenance.md) covers dependency and release records.
+
 Everything an agent or a human needs to work inside the
 `tomorrow_never_dies` (CARVER) mission package, excluding the manuscript
 (which documents itself under [`../manuscript/`](../manuscript/)) and the
