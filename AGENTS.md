@@ -1,5 +1,8 @@
 # AGENTS.md — CARVER (tomorrow_never_dies)
 
+The [package maintenance guide](docs/package-maintenance.md) records the
+distribution identity, Python selection, dependency provenance, and citation metadata.
+
 **PROJECT BOND film package · mission codename CARVER · Tomorrow Never Dies
 (1997).**
 
